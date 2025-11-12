@@ -15,4 +15,22 @@ model User {
   rounds        Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  Round         Round[]
+}
+
+model Round {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseName   String
+  datePlayed   DateTime
+  score        Int
+  holes        Int      @default(18)
+  courseRating Float?
+  slopeRating  Int?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
 }

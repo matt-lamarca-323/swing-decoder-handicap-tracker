@@ -68,9 +68,13 @@ npx prisma generate
 
 ```
 app/
-├── api/users/              # API routes for user CRUD operations
-│   ├── route.ts           # GET (all users) and POST (create user)
-│   └── [id]/route.ts      # GET, PUT, DELETE (single user)
+├── api/
+│   ├── users/             # API routes for user CRUD operations
+│   │   ├── route.ts      # GET (all users) and POST (create user)
+│   │   └── [id]/route.ts # GET, PUT, DELETE (single user)
+│   └── rounds/            # API routes for round CRUD operations
+│       ├── route.ts      # GET (all rounds) and POST (create round)
+│       └── [id]/route.ts # GET, PUT, DELETE (single round)
 ├── users/                 # User management pages
 │   ├── page.tsx          # User list with table
 │   ├── new/page.tsx      # Create new user form
@@ -101,6 +105,22 @@ prisma/
 - `rounds` (Int, default: 0): Number of rounds played
 - `createdAt` (DateTime): Creation timestamp
 - `updatedAt` (DateTime): Last update timestamp
+- `Round[]`: One-to-many relation with rounds
+
+### Round Model
+
+- `id` (Int, auto-increment): Primary key with SERIAL/IDENTITY
+- `userId` (Int, foreign key): References User.id (CASCADE on delete)
+- `courseName` (String): Name of the golf course
+- `datePlayed` (DateTime): Date and time the round was played
+- `score` (Int): Total score for the round
+- `holes` (Int, default: 18): Number of holes (9 or 18)
+- `courseRating` (Float, nullable): Course rating for handicap calculation
+- `slopeRating` (Int, nullable): Slope rating for handicap calculation
+- `notes` (String, nullable): Additional notes about the round
+- `createdAt` (DateTime): Creation timestamp
+- `updatedAt` (DateTime): Last update timestamp
+- `user`: Relation to User model
 
 ## API Endpoints
 
@@ -119,6 +139,25 @@ All endpoints return JSON and use appropriate HTTP status codes.
 - `PUT /api/users/[id]` - Update user
   - Body: Partial user object
 - `DELETE /api/users/[id]` - Delete user
+
+### Rounds Collection
+
+- `GET /api/rounds` - Get all rounds (ordered by date played, descending)
+  - Query params: `?userId=123` (optional, filter by user)
+  - Includes user relation data
+- `POST /api/rounds` - Create new round
+  - Body: `{ userId, courseName, datePlayed, score, holes?, courseRating?, slopeRating?, notes? }`
+  - Validates with Zod schema
+  - Checks if user exists before creating
+
+### Individual Round
+
+- `GET /api/rounds/[id]` - Get round by ID
+  - Includes user relation data
+- `PUT /api/rounds/[id]` - Update round
+  - Body: Partial round object
+  - Validates userId if provided
+- `DELETE /api/rounds/[id]` - Delete round
 
 ## Client-Side Pages
 
@@ -149,29 +188,43 @@ lib/__tests__/
 
 app/api/__tests__/
 ├── mocks/
-│   ├── prisma.ts              # Prisma client mock
+│   ├── prisma.ts              # Prisma client mock (User & Round)
 │   └── nextRequest.ts         # Next.js request helper
 ├── users.route.test.ts        # Tests for GET/POST /api/users
-└── users.id.route.test.ts     # Tests for GET/PUT/DELETE /api/users/[id]
+├── users.id.route.test.ts     # Tests for GET/PUT/DELETE /api/users/[id]
+├── rounds.route.test.ts       # Tests for GET/POST /api/rounds
+└── rounds.id.route.test.ts    # Tests for GET/PUT/DELETE /api/rounds/[id]
 ```
 
 ### Test Coverage
 
-**40 unit tests** covering:
+**83 unit tests** covering:
 
-1. **Validation Logic** (17 tests)
-   - Valid user data validation
-   - Invalid email handling
-   - Empty/missing field validation
-   - Optional field handling
-   - Partial update validation
+1. **Validation Logic** (35 tests)
+   - User schema validation (17 tests)
+     - Valid/invalid email, name, handicap, rounds
+     - Optional field handling
+     - Partial update validation
+   - Round schema validation (18 tests)
+     - Valid/invalid courseName, score, datePlayed, holes
+     - 9 vs 18 hole validation
+     - Optional fields (courseRating, slopeRating, notes)
+     - Partial update validation
 
-2. **API Endpoints** (23 tests)
+2. **User API Endpoints** (23 tests)
    - GET /api/users - List all users
    - POST /api/users - Create user with validation
    - GET /api/users/[id] - Get single user, 404 handling
    - PUT /api/users/[id] - Update user with validation
    - DELETE /api/users/[id] - Delete user
+   - Database error handling for all endpoints
+
+3. **Round API Endpoints** (25 tests)
+   - GET /api/rounds - List all rounds, filter by userId
+   - POST /api/rounds - Create round with validation, user existence check
+   - GET /api/rounds/[id] - Get single round with user data, 404 handling
+   - PUT /api/rounds/[id] - Update round with validation, userId validation
+   - DELETE /api/rounds/[id] - Delete round
    - Database error handling for all endpoints
 
 ### Running Tests

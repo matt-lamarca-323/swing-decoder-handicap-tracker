@@ -11,3 +11,21 @@ export const updateUserSchema = userSchema.partial()
 
 export type UserInput = z.infer<typeof userSchema>
 export type UpdateUserInput = z.infer<typeof updateUserSchema>
+
+export const roundSchema = z.object({
+  userId: z.number().int().positive('User ID is required'),
+  courseName: z.string().min(1, 'Course name is required'),
+  datePlayed: z.string().datetime('Invalid date format').or(z.date()),
+  score: z.number().int().positive('Score must be a positive number'),
+  holes: z.number().int().refine((val) => val === 9 || val === 18, {
+    message: 'Holes must be either 9 or 18',
+  }).optional(),
+  courseRating: z.number().positive().optional().nullable(),
+  slopeRating: z.number().int().positive().optional().nullable(),
+  notes: z.string().optional().nullable(),
+})
+
+export const updateRoundSchema = roundSchema.partial()
+
+export type RoundInput = z.infer<typeof roundSchema>
+export type UpdateRoundInput = z.infer<typeof updateRoundSchema>
