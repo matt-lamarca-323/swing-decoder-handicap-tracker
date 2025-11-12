@@ -161,10 +161,13 @@ All endpoints return JSON and use appropriate HTTP status codes.
 
 ## Client-Side Pages
 
-- `/` - Homepage with link to user management
+- `/` - Homepage with links to user and round management
 - `/users` - User list table with edit/delete actions
 - `/users/new` - Create new user form
 - `/users/[id]/edit` - Edit existing user form
+- `/rounds` - Rounds list table showing all rounds for all users
+- `/rounds/new` - Create new round form
+- `/rounds/[id]/edit` - Edit existing round form
 
 All user-facing pages are client components (`'use client'`) using Bootstrap components for consistent styling.
 

@@ -12,11 +12,18 @@ export default function Home() {
               <p className="lead mb-4">
                 Track your golf handicap and analyze your swing performance
               </p>
-              <Link href="/users" passHref legacyBehavior>
-                <Button variant="primary" size="lg">
-                  Manage Users
-                </Button>
-              </Link>
+              <div className="d-flex gap-3 justify-content-center">
+                <Link href="/users" passHref legacyBehavior>
+                  <Button variant="primary" size="lg">
+                    Manage Users
+                  </Button>
+                </Link>
+                <Link href="/rounds" passHref legacyBehavior>
+                  <Button variant="success" size="lg">
+                    View Rounds
+                  </Button>
+                </Link>
+              </div>
             </Card.Body>
           </Card>
         </Col>
