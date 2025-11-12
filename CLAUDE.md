@@ -46,6 +46,13 @@ npx prisma generate
 - **Start production**: `npm start`
 - **Lint code**: `npm run lint`
 
+### Testing
+
+- **Run tests**: `npm test` (runs in watch mode)
+- **Run tests once**: `npm test -- --run`
+- **Test UI**: `npm run test:ui` (opens Vitest UI in browser)
+- **Coverage**: `npm run test:coverage` (generates coverage report)
+
 ### Database Management
 
 - **Push schema to database**: `npm run db:push` or `npx prisma db push`
@@ -129,3 +136,86 @@ All user-facing pages are client components (`'use client'`) using Bootstrap com
 - **Error Handling**: All API routes handle errors gracefully with appropriate status codes
 - **Bootstrap**: Imported globally in `app/layout.tsx`, components use react-bootstrap
 - **Navigation**: Shared navbar component included in root layout
+
+## Testing
+
+The project uses **Vitest** as the test framework for unit testing business logic.
+
+### Test Structure
+
+```
+lib/__tests__/
+└── validation.test.ts          # Tests for Zod validation schemas
+
+app/api/__tests__/
+├── mocks/
+│   ├── prisma.ts              # Prisma client mock
+│   └── nextRequest.ts         # Next.js request helper
+├── users.route.test.ts        # Tests for GET/POST /api/users
+└── users.id.route.test.ts     # Tests for GET/PUT/DELETE /api/users/[id]
+```
+
+### Test Coverage
+
+**40 unit tests** covering:
+
+1. **Validation Logic** (17 tests)
+   - Valid user data validation
+   - Invalid email handling
+   - Empty/missing field validation
+   - Optional field handling
+   - Partial update validation
+
+2. **API Endpoints** (23 tests)
+   - GET /api/users - List all users
+   - POST /api/users - Create user with validation
+   - GET /api/users/[id] - Get single user, 404 handling
+   - PUT /api/users/[id] - Update user with validation
+   - DELETE /api/users/[id] - Delete user
+   - Database error handling for all endpoints
+
+### Running Tests
+
+```bash
+# Run in watch mode (recommended during development)
+npm test
+
+# Run once (for CI/CD)
+npm test -- --run
+
+# Open test UI in browser
+npm run test:ui
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Writing New Tests
+
+When adding new business logic:
+
+1. Create test file adjacent to code: `__tests__/filename.test.ts`
+2. Use Vitest's `describe`, `it`, and `expect` functions
+3. Mock Prisma using the existing mock in `app/api/__tests__/mocks/prisma.ts`
+4. Reset mocks in `beforeEach` hooks
+5. Test both success and error cases
+
+Example test structure:
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest'
+import { resetMocks } from './mocks/prisma'
+
+describe('Feature Name', () => {
+  beforeEach(() => {
+    resetMocks()
+  })
+
+  it('should handle valid input', async () => {
+    // Arrange, Act, Assert
+  })
+
+  it('should handle errors', async () => {
+    // Test error cases
+  })
+})
+```
