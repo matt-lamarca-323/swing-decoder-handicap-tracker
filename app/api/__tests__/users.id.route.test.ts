@@ -37,7 +37,7 @@ describe('GET /api/users/[id]', () => {
     expect(data.createdAt).toBeDefined()
     expect(data.updatedAt).toBeDefined()
     expect(mockPrismaUser.findUnique).toHaveBeenCalledWith({
-      where: { id: '1' },
+      where: { id: 1 },
     })
   })
 
@@ -99,7 +99,7 @@ describe('PUT /api/users/[id]', () => {
     expect(data.createdAt).toBeDefined()
     expect(data.updatedAt).toBeDefined()
     expect(mockPrismaUser.update).toHaveBeenCalledWith({
-      where: { id: '1' },
+      where: { id: 1 },
       data: updateData,
     })
   })
@@ -233,7 +233,7 @@ describe('DELETE /api/users/[id]', () => {
     expect(response.status).toBe(200)
     expect(data).toEqual({ message: 'User deleted successfully' })
     expect(mockPrismaUser.delete).toHaveBeenCalledWith({
-      where: { id: '1' },
+      where: { id: 1 },
     })
   })
 

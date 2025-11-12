@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id: parseInt(params.id) },
     })
 
     if (!user) {
@@ -43,7 +43,7 @@ export async function PUT(
 
     // Update user
     const user = await prisma.user.update({
-      where: { id: params.id },
+      where: { id: parseInt(params.id) },
       data: validatedData,
     })
 
@@ -71,7 +71,7 @@ export async function DELETE(
 ) {
   try {
     await prisma.user.delete({
-      where: { id: params.id },
+      where: { id: parseInt(params.id) },
     })
 
     return NextResponse.json({ message: 'User deleted successfully' })
