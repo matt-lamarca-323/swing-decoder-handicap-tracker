@@ -1,8 +1,10 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { PrismaClient, Role } from "@prisma/client"
 import prisma from "@/lib/prisma"
+import { verifyPassword } from "@/lib/password"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -17,14 +19,60 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           response_type: "code"
         }
       }
+    }),
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+        rememberMe: { label: "Remember Me", type: "checkbox" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password are required")
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email as string }
+        })
+
+        if (!user || !user.password) {
+          throw new Error("Invalid email or password")
+        }
+
+        const isValidPassword = await verifyPassword(
+          credentials.password as string,
+          user.password
+        )
+
+        if (!isValidPassword) {
+          throw new Error("Invalid email or password")
+        }
+
+        // Return user object with remember me flag
+        return {
+          id: user.id.toString(),
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role,
+          rememberMe: credentials.rememberMe === "true"
+        } as any
+      }
     })
   ],
   session: {
     strategy: "database",
+    maxAge: 30 * 24 * 60 * 60, // 30 days default
   },
   callbacks: {
     async signIn({ user, account, profile }) {
       if (!user.email) return false
+
+      // For Credentials provider, user is already validated in authorize()
+      if (account?.provider === "credentials") {
+        return true
+      }
 
       // Check if this is the first user in the database
       const userCount = await prisma.user.count()
@@ -49,17 +97,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       return true
     },
-    async session({ session, user }) {
+    async session({ session, user, token }) {
       // Add user id and role to the session
       if (session.user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email! },
-          select: { id: true, role: true }
-        })
+        // For credentials login, user info comes from token
+        if (token?.sub) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: parseInt(token.sub) },
+            select: { id: true, role: true, email: true, name: true, image: true }
+          })
 
-        if (dbUser) {
-          session.user.id = dbUser.id.toString()
-          session.user.role = dbUser.role
+          if (dbUser) {
+            session.user.id = dbUser.id.toString()
+            session.user.role = dbUser.role
+            session.user.email = dbUser.email
+            session.user.name = dbUser.name
+            session.user.image = dbUser.image
+          }
+        } else {
+          // For OAuth login, user info comes from user object
+          const dbUser = await prisma.user.findUnique({
+            where: { email: session.user.email! },
+            select: { id: true, role: true }
+          })
+
+          if (dbUser) {
+            session.user.id = dbUser.id.toString()
+            session.user.role = dbUser.role
+          }
         }
       }
       return session

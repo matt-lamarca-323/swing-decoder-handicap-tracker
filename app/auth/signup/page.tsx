@@ -3,52 +3,74 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { Container, Card, Button, Form, Alert } from 'react-bootstrap'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/users'
-  const error = searchParams.get('error')
 
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
-  const getErrorMessage = (error: string | null) => {
-    switch (error) {
-      case 'CredentialsSignin':
-        return 'Invalid email or password. Please try again.'
-      case 'OAuthSignin':
-      case 'OAuthCallback':
-        return 'Error signing in with Google. Please try again.'
-      case 'OAuthAccountNotLinked':
-        return 'This email is already registered. Please sign in with your password.'
-      default:
-        return error ? 'An error occurred during sign in. Please try again.' : ''
-    }
-  }
-
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErrorMessage('')
+    setSuccessMessage('')
+
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    // Validate password length
+    if (password.length < 8) {
+      setErrorMessage('Password must be at least 8 characters')
+      setLoading(false)
+      return
+    }
 
     try {
-      const result = await signIn('credentials', {
+      // Call sign-up API
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setErrorMessage(data.error || 'Failed to create account')
+        setLoading(false)
+        return
+      }
+
+      // Account created successfully, show success message
+      setSuccessMessage('Account created successfully! Signing you in...')
+
+      // Automatically sign in the user
+      const signInResult = await signIn('credentials', {
         email,
         password,
-        rememberMe: rememberMe.toString(),
         redirect: false,
       })
 
-      if (result?.error) {
-        setErrorMessage('Invalid email or password')
-      } else if (result?.ok) {
-        router.push(callbackUrl)
+      if (signInResult?.error) {
+        setErrorMessage('Account created but sign-in failed. Please sign in manually.')
+        setTimeout(() => router.push('/auth/signin'), 2000)
+      } else if (signInResult?.ok) {
+        // Redirect to users page after successful sign in
+        router.push('/users')
       }
     } catch (error) {
       setErrorMessage('An error occurred. Please try again.')
@@ -57,8 +79,8 @@ export default function SignInPage() {
     }
   }
 
-  const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl })
+  const handleGoogleSignUp = () => {
+    signIn('google', { callbackUrl: '/users' })
   }
 
   return (
@@ -66,18 +88,34 @@ export default function SignInPage() {
       <Card style={{ maxWidth: '450px', width: '100%' }}>
         <Card.Body className="p-5">
           <div className="text-center mb-4">
-            <h1 className="h3 mb-2">Welcome Back</h1>
-            <p className="text-muted">Sign in to access your golf handicap tracker</p>
+            <h1 className="h3 mb-2">Create Account</h1>
+            <p className="text-muted">Sign up to start tracking your golf handicap</p>
           </div>
 
-          {(error || errorMessage) && (
+          {errorMessage && (
             <Alert variant="danger" dismissible onClose={() => setErrorMessage('')}>
-              {errorMessage || getErrorMessage(error)}
+              {errorMessage}
             </Alert>
           )}
 
+          {successMessage && (
+            <Alert variant="success">{successMessage}</Alert>
+          )}
+
           {/* Email/Password Form */}
-          <Form onSubmit={handleEmailSignIn} className="mb-4">
+          <Form onSubmit={handleSignUp} className="mb-4">
+            <Form.Group className="mb-3">
+              <Form.Label>Full Name</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter your full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Email</Form.Label>
               <Form.Control
@@ -94,26 +132,27 @@ export default function SignInPage() {
               <Form.Label>Password</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Create a password (min. 8 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                minLength={8}
               />
             </Form.Group>
 
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <Form.Check
-                type="checkbox"
-                label="Remember me"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
+            <Form.Group className="mb-3">
+              <Form.Label>Confirm Password</Form.Label>
+              <Form.Control
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
                 disabled={loading}
+                minLength={8}
               />
-              <Link href="/auth/forgot-password" className="text-decoration-none small">
-                Forgot password?
-              </Link>
-            </div>
+            </Form.Group>
 
             <Button
               variant="primary"
@@ -122,7 +161,7 @@ export default function SignInPage() {
               className="w-100"
               disabled={loading}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Creating account...' : 'Sign Up'}
             </Button>
           </Form>
 
@@ -137,11 +176,11 @@ export default function SignInPage() {
             </span>
           </div>
 
-          {/* Google Sign In */}
+          {/* Google Sign Up */}
           <Button
             variant="outline-dark"
             size="lg"
-            onClick={handleGoogleSignIn}
+            onClick={handleGoogleSignUp}
             className="w-100 d-flex align-items-center justify-content-center"
           >
             <svg
@@ -157,11 +196,11 @@ export default function SignInPage() {
             Continue with Google
           </Button>
 
-          {/* Sign Up Link */}
+          {/* Sign In Link */}
           <div className="text-center mt-4">
-            <span className="text-muted">Don't have an account? </span>
-            <Link href="/auth/signup" className="text-decoration-none">
-              Sign up
+            <span className="text-muted">Already have an account? </span>
+            <Link href="/auth/signin" className="text-decoration-none">
+              Sign in
             </Link>
           </div>
         </Card.Body>
