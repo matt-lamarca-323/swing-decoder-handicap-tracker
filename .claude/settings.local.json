@@ -11,7 +11,9 @@
       "Bash(npx prisma:*)",
       "Bash(npm test:*)",
       "WebSearch",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node fix-admin-role.js:*)"
     ],
     "deny": [],
     "ask": []

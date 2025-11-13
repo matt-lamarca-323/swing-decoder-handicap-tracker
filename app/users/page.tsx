@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Container, Table, Button, Alert, Spinner } from 'react-bootstrap'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 
 interface User {
   id: number
@@ -20,10 +21,28 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { data: session, status } = useSession()
+
+  // Redirect non-admins
+  useEffect(() => {
+    if (status === 'loading') return
+
+    if (!session) {
+      router.push('/auth/signin')
+      return
+    }
+
+    if (session.user?.role !== 'ADMIN') {
+      router.push('/rounds')
+      return
+    }
+  }, [session, status, router])
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    if (session?.user?.role === 'ADMIN') {
+      fetchUsers()
+    }
+  }, [session])
 
   const fetchUsers = async () => {
     try {
@@ -56,7 +75,8 @@ export default function UsersPage() {
     }
   }
 
-  if (loading) {
+  // Show loading while checking auth or fetching data
+  if (status === 'loading' || loading || !session || session.user?.role !== 'ADMIN') {
     return (
       <Container className="py-5 text-center">
         <Spinner animation="border" role="status">

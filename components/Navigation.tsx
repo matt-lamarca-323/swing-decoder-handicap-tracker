@@ -22,11 +22,13 @@ export default function Navigation() {
             </Link>
             {session && (
               <>
-                <Link href="/users" passHref legacyBehavior>
-                  <Nav.Link>Users</Nav.Link>
-                </Link>
+                {session.user?.role === 'ADMIN' && (
+                  <Link href="/users" passHref legacyBehavior>
+                    <Nav.Link>Users</Nav.Link>
+                  </Link>
+                )}
                 <Link href="/rounds" passHref legacyBehavior>
-                  <Nav.Link>Rounds</Nav.Link>
+                  <Nav.Link>My Rounds</Nav.Link>
                 </Link>
               </>
             )}

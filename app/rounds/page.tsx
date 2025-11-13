@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Container, Table, Button, Alert, Spinner, Badge } from 'react-bootstrap'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 
 interface Round {
   id: number
@@ -27,6 +28,7 @@ export default function RoundsPage() {
   const [rounds, setRounds] = useState<Round[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { data: session } = useSession()
 
   useEffect(() => {
     fetchRounds()
@@ -85,7 +87,7 @@ export default function RoundsPage() {
   return (
     <Container className="py-5">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>Golf Rounds</h1>
+        <h1>{session?.user?.role === 'ADMIN' ? 'All Golf Rounds' : 'My Golf Rounds'}</h1>
         <Link href="/rounds/new" passHref legacyBehavior>
           <Button variant="primary">Add New Round</Button>
         </Link>
@@ -116,9 +118,13 @@ export default function RoundsPage() {
               <tr key={round.id}>
                 <td>{formatDate(round.datePlayed)}</td>
                 <td>
-                  <Link href={`/users/${round.user.id}/edit`} className="text-decoration-none">
-                    {round.user.name}
-                  </Link>
+                  {session?.user?.role === 'ADMIN' ? (
+                    <Link href={`/users/${round.user.id}/edit`} className="text-decoration-none">
+                      {round.user.name}
+                    </Link>
+                  ) : (
+                    <span>{round.user.name}</span>
+                  )}
                 </td>
                 <td>{round.courseName}</td>
                 <td>
