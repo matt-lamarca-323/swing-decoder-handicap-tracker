@@ -294,6 +294,206 @@ describe('Validation Schemas', () => {
       expect(result.success).toBe(false)
     })
 
+    it('should accept valid golf statistics fields', () => {
+      const roundWithStats = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        holes: 18,
+        greensInRegulation: 9,
+        fairwaysInRegulation: 7,
+        putts: 32,
+        upAndDowns: 3,
+        upAndDownAttempts: 9,
+        girPutts: 18,
+        nonGirPutts: 14,
+        holeByHoleData: { holes: [] },
+      }
+
+      const result = roundSchema.safeParse(roundWithStats)
+      expect(result.success).toBe(true)
+    })
+
+    it('should accept null golf statistics fields', () => {
+      const roundWithNullStats = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        greensInRegulation: null,
+        fairwaysInRegulation: null,
+        putts: null,
+        upAndDowns: null,
+        upAndDownAttempts: null,
+        girPutts: null,
+        nonGirPutts: null,
+        holeByHoleData: null,
+      }
+
+      const result = roundSchema.safeParse(roundWithNullStats)
+      expect(result.success).toBe(true)
+    })
+
+    it('should reject greensInRegulation less than 0', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        greensInRegulation: -1,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject greensInRegulation greater than 18', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        greensInRegulation: 19,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject fairwaysInRegulation less than 0', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        fairwaysInRegulation: -1,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject fairwaysInRegulation greater than 14', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        fairwaysInRegulation: 15,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject negative putts', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        putts: -5,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject negative upAndDowns', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        upAndDowns: -1,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject negative upAndDownAttempts', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        upAndDownAttempts: -1,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject negative girPutts', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        girPutts: -1,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should reject negative nonGirPutts', () => {
+      const invalidRound = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        nonGirPutts: -1,
+      }
+
+      const result = roundSchema.safeParse(invalidRound)
+      expect(result.success).toBe(false)
+    })
+
+    it('should accept valid boundary values for greensInRegulation', () => {
+      const validMin = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        greensInRegulation: 0,
+      }
+
+      const validMax = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 72,
+        greensInRegulation: 18,
+      }
+
+      expect(roundSchema.safeParse(validMin).success).toBe(true)
+      expect(roundSchema.safeParse(validMax).success).toBe(true)
+    })
+
+    it('should accept valid boundary values for fairwaysInRegulation', () => {
+      const validMin = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 85,
+        fairwaysInRegulation: 0,
+      }
+
+      const validMax = {
+        userId: 1,
+        courseName: 'Test Course',
+        datePlayed: '2024-01-15T10:00:00Z',
+        score: 72,
+        fairwaysInRegulation: 14,
+      }
+
+      expect(roundSchema.safeParse(validMin).success).toBe(true)
+      expect(roundSchema.safeParse(validMax).success).toBe(true)
+    })
+
     it('should reject invalid holes value (not 9 or 18)', () => {
       const invalidRound = {
         userId: 1,

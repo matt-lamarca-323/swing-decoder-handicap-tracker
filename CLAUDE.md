@@ -619,12 +619,14 @@ The project uses **Vitest** as the test framework for unit testing business logi
 
 ```
 lib/__tests__/
-└── validation.test.ts          # Tests for Zod validation schemas
+├── validation.test.ts          # Tests for Zod validation schemas
+└── golf-calculator.test.ts     # Tests for golf statistics calculation engine
 
 app/api/__tests__/
 ├── mocks/
 │   ├── prisma.ts              # Prisma client mock (User & Round)
 │   └── nextRequest.ts         # Next.js request helper
+├── dashboard.route.test.ts    # Tests for GET /api/dashboard
 ├── users.route.test.ts        # Tests for GET/POST /api/users
 ├── users.id.route.test.ts     # Tests for GET/PUT/DELETE /api/users/[id]
 ├── rounds.route.test.ts       # Tests for GET/POST /api/rounds
@@ -633,20 +635,50 @@ app/api/__tests__/
 
 ### Test Coverage
 
-**83 unit tests** covering:
+**109 unit tests** covering:
 
-1. **Validation Logic** (35 tests)
+1. **Validation Logic** (48 tests)
    - User schema validation (17 tests)
      - Valid/invalid email, name, handicap, rounds
      - Optional field handling
      - Partial update validation
-   - Round schema validation (18 tests)
+   - Round schema validation (31 tests)
      - Valid/invalid courseName, score, datePlayed, holes
      - 9 vs 18 hole validation
      - Optional fields (courseRating, slopeRating, notes)
+     - Golf statistics validation (greensInRegulation, fairwaysInRegulation, putts, upAndDowns, girPutts, nonGirPutts)
+     - Boundary value testing for all statistics fields
      - Partial update validation
 
-2. **User API Endpoints** (23 tests)
+2. **Golf Statistics Calculator** (50 tests)
+   - calculateGIR() function (15 tests)
+     - Standard GIR detection based on strokes to green
+     - Par with multiple putts heuristic
+     - Birdie or better assumed GIR
+     - Edge cases (0 putts, high scores, par 6)
+   - calculateUpAndDown() function (7 tests)
+     - Up and down detection for missed greens
+     - Par saves and successful scrambles
+     - Different par values
+   - calculateRoundStats() aggregation (11 tests)
+     - Perfect rounds, missed greens, birdies
+     - GIR, FIR, putts, up & down calculation
+     - Scrambling percentage
+     - Empty and partial data handling
+   - generateDefaultHoles() utility (5 tests)
+   - validateHoleData() validation (7 tests)
+   - estimateStatsFromTotals() estimation (5 tests)
+
+3. **Dashboard API Endpoint** (11 tests)
+   - GET /api/dashboard - User statistics calculation
+   - Average score, GIR%, FIR%, putts, up & down%
+   - Handling rounds with partial statistics
+   - Mixed 9-hole and 18-hole rounds
+   - Recent rounds limiting (5 max)
+   - Error handling (404, 500, auth errors)
+   - Precision rounding validation
+
+4. **User API Endpoints** (23 tests - pre-existing)
    - GET /api/users - List all users
    - POST /api/users - Create user with validation
    - GET /api/users/[id] - Get single user, 404 handling
@@ -654,7 +686,7 @@ app/api/__tests__/
    - DELETE /api/users/[id] - Delete user
    - Database error handling for all endpoints
 
-3. **Round API Endpoints** (25 tests)
+5. **Round API Endpoints** (25 tests - pre-existing)
    - GET /api/rounds - List all rounds, filter by userId
    - POST /api/rounds - Create round with validation, user existence check
    - GET /api/rounds/[id] - Get single round with user data, 404 handling
