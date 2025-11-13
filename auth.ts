@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { PrismaClient, Role } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { verifyPassword } from "@/lib/password"
+import { logger } from "@/lib/logger"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -28,36 +29,60 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         rememberMe: { label: "Remember Me", type: "checkbox" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password are required")
+        const startTime = logger.startTimer()
+        const email = credentials?.email as string
+
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            logger.warn('Credentials sign-in attempt missing email or password')
+            throw new Error("Email and password are required")
+          }
+
+          logger.debug('Credentials sign-in attempt', { auth: { email } })
+
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string }
+          })
+
+          if (!user || !user.password) {
+            logger.warn('Credentials sign-in failed - user not found or no password', {
+              auth: { email }
+            })
+            throw new Error("Invalid email or password")
+          }
+
+          const isValidPassword = await verifyPassword(
+            credentials.password as string,
+            user.password
+          )
+
+          if (!isValidPassword) {
+            logger.warn('Credentials sign-in failed - invalid password', {
+              auth: { email, userId: user.id.toString() }
+            })
+            throw new Error("Invalid email or password")
+          }
+
+          const duration = logger.endTimer(startTime)
+          logger.authEvent('signin', user.id.toString(), user.email, 'credentials', {
+            performance: { duration_ms: duration },
+            rememberMe: credentials.rememberMe === "true"
+          })
+
+          // Return user object with remember me flag
+          return {
+            id: user.id.toString(),
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            role: user.role,
+            rememberMe: credentials.rememberMe === "true"
+          } as any
+        } catch (error) {
+          const duration = logger.endTimer(startTime)
+          logger.authError('credentials_signin', error as Error, email, 'credentials')
+          throw error
         }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
-        })
-
-        if (!user || !user.password) {
-          throw new Error("Invalid email or password")
-        }
-
-        const isValidPassword = await verifyPassword(
-          credentials.password as string,
-          user.password
-        )
-
-        if (!isValidPassword) {
-          throw new Error("Invalid email or password")
-        }
-
-        // Return user object with remember me flag
-        return {
-          id: user.id.toString(),
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-          rememberMe: credentials.rememberMe === "true"
-        } as any
       }
     })
   ],
@@ -78,114 +103,197 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (!user.email) {
-        console.log('[Auth] Sign-in rejected: No email provided')
+      const startTime = logger.startTimer()
+
+      try {
+        if (!user.email) {
+          logger.warn('Sign-in rejected - no email provided', {
+            auth: { provider: account?.provider }
+          })
+          return false
+        }
+
+        // For Credentials provider, user is already validated in authorize()
+        if (account?.provider === "credentials") {
+          const duration = logger.endTimer(startTime)
+          logger.info('Credentials sign-in callback completed', {
+            auth: { email: user.email, provider: 'credentials' },
+            performance: { duration_ms: duration }
+          })
+          return true
+        }
+
+        // For OAuth providers (Google), allow sign-in
+        // The PrismaAdapter will automatically:
+        // 1. Create a new user if email doesn't exist
+        // 2. Link the OAuth account to the user
+        // 3. Update existing user info if user already exists
+        const duration = logger.endTimer(startTime)
+        logger.authEvent('signin', user.id, user.email, account?.provider, {
+          performance: { duration_ms: duration },
+          profile: profile ? { name: profile.name } : undefined
+        })
+
+        return true
+      } catch (error) {
+        const duration = logger.endTimer(startTime)
+        logger.authError('signin_callback', error as Error, user.email, account?.provider)
         return false
       }
-
-      // For Credentials provider, user is already validated in authorize()
-      if (account?.provider === "credentials") {
-        console.log(`[Auth] Credentials sign-in: ${user.email}`)
-        return true
-      }
-
-      // For OAuth providers (Google), allow sign-in
-      // The PrismaAdapter will automatically:
-      // 1. Create a new user if email doesn't exist
-      // 2. Link the OAuth account to the user
-      // 3. Update existing user info if user already exists
-      console.log(`[Auth] OAuth sign-in with ${account?.provider}: ${user.email}`)
-
-      return true
     },
     async jwt({ token, user, account, trigger }) {
-      // Initial sign in - fetch user data from database
-      if (user && user.email) {
-        // Add a small delay to ensure user creation is complete (for OAuth flows)
-        if (account?.provider && account.provider !== "credentials") {
-          await new Promise(resolve => setTimeout(resolve, 150))
-        }
+      const startTime = logger.startTimer()
 
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-          select: { id: true, role: true, email: true, name: true, image: true }
-        })
-
-        if (dbUser) {
-          // Check if this is the first user and should be admin
-          const userCount = await prisma.user.count()
-          let userRole = dbUser.role
-
-          // If this is the first user and not already admin, update to admin
-          if (userCount === 1 && dbUser.role !== Role.ADMIN) {
-            await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { role: Role.ADMIN }
-            })
-            userRole = Role.ADMIN
-            console.log(`[Auth] First user promoted to ADMIN: ${dbUser.email}`)
+      try {
+        // Initial sign in - fetch user data from database
+        if (user && user.email) {
+          // Add a small delay to ensure user creation is complete (for OAuth flows)
+          if (account?.provider && account.provider !== "credentials") {
+            await new Promise(resolve => setTimeout(resolve, 150))
           }
 
-          token.id = dbUser.id.toString()
-          token.role = userRole
-          token.email = dbUser.email
-          token.name = dbUser.name
-          token.picture = dbUser.image
-          console.log(`[Auth] JWT token created for user: ${dbUser.email} (Role: ${userRole})`)
-        } else {
-          console.log(`[Auth] Warning: User not found in database yet: ${user.email}`)
-        }
-      }
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { id: true, role: true, email: true, name: true, image: true }
+          })
 
-      // Refresh token data on update
-      if (trigger === "update" && token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: parseInt(token.id as string) },
-          select: { id: true, role: true, email: true, name: true, image: true }
+          if (dbUser) {
+            // Check if this is the first user and should be admin
+            const userCount = await prisma.user.count()
+            let userRole = dbUser.role
+
+            // If this is the first user and not already admin, update to admin
+            if (userCount === 1 && dbUser.role !== Role.ADMIN) {
+              await prisma.user.update({
+                where: { id: dbUser.id },
+                data: { role: Role.ADMIN }
+              })
+              userRole = Role.ADMIN
+              logger.info('First user promoted to ADMIN', {
+                auth: { userId: dbUser.id.toString(), email: dbUser.email },
+                database: { operation: 'update', model: 'User' }
+              })
+            }
+
+            token.id = dbUser.id.toString()
+            token.role = userRole
+            token.email = dbUser.email
+            token.name = dbUser.name
+            token.picture = dbUser.image
+
+            const duration = logger.endTimer(startTime)
+            logger.authEvent('session_created', dbUser.id.toString(), dbUser.email, account?.provider, {
+              auth: { role: userRole },
+              performance: { duration_ms: duration }
+            })
+          } else {
+            logger.warn('User not found in database during JWT creation', {
+              auth: { email: user.email, provider: account?.provider }
+            })
+          }
+        }
+
+        // Refresh token data on update
+        if (trigger === "update" && token.id) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: parseInt(token.id as string) },
+            select: { id: true, role: true, email: true, name: true, image: true }
+          })
+
+          if (dbUser) {
+            token.role = dbUser.role
+            token.email = dbUser.email
+            token.name = dbUser.name
+            token.picture = dbUser.image
+
+            const duration = logger.endTimer(startTime)
+            logger.info('JWT token refreshed', {
+              auth: { userId: dbUser.id.toString(), email: dbUser.email, role: dbUser.role },
+              performance: { duration_ms: duration }
+            })
+          }
+        }
+
+        return token
+      } catch (error) {
+        const duration = logger.endTimer(startTime)
+        logger.error('JWT callback failed', error as Error, {
+          auth: { trigger, email: user?.email },
+          performance: { duration_ms: duration }
         })
-
-        if (dbUser) {
-          token.role = dbUser.role
-          token.email = dbUser.email
-          token.name = dbUser.name
-          token.picture = dbUser.image
-          console.log(`[Auth] JWT token refreshed for user: ${dbUser.email}`)
-        }
+        return token
       }
-
-      return token
     },
     async session({ session, token }) {
-      // Add user data from token to session
-      if (session.user && token) {
-        session.user.id = token.id as string
-        session.user.role = token.role as Role
-        session.user.email = token.email as string
-        session.user.name = token.name as string
-        session.user.image = token.picture as string | null
+      try {
+        // Add user data from token to session
+        if (session.user && token) {
+          session.user.id = token.id as string
+          session.user.role = token.role as Role
+          session.user.email = token.email as string
+          session.user.name = token.name as string
+          session.user.image = token.picture as string | null
+
+          logger.debug('Session callback completed', {
+            auth: { userId: token.id as string, role: token.role as string }
+          })
+        }
+        return session
+      } catch (error) {
+        logger.error('Session callback failed', error as Error)
+        return session
       }
-      return session
     }
   },
   events: {
     async createUser({ user }) {
-      console.log(`[Auth] New user created: ${user.email}`)
+      const startTime = logger.startTimer()
 
-      // Check if this is the first user and make them an admin
-      const userCount = await prisma.user.count()
-
-      if (userCount === 1 && user.email) {
-        await prisma.user.update({
-          where: { email: user.email },
-          data: { role: Role.ADMIN }
+      try {
+        logger.info('New user created', {
+          auth: { userId: user.id, email: user.email },
+          database: { operation: 'create', model: 'User' }
         })
-        console.log(`[Auth] First user assigned ADMIN role: ${user.email}`)
-      } else {
-        console.log(`[Auth] User created with USER role: ${user.email}`)
+
+        // Check if this is the first user and make them an admin
+        const userCount = await prisma.user.count()
+
+        if (userCount === 1 && user.email) {
+          await prisma.user.update({
+            where: { email: user.email },
+            data: { role: Role.ADMIN }
+          })
+
+          const duration = logger.endTimer(startTime)
+          logger.authEvent('signup', user.id, user.email, undefined, {
+            auth: { role: 'ADMIN', firstUser: true },
+            performance: { duration_ms: duration }
+          })
+        } else {
+          const duration = logger.endTimer(startTime)
+          logger.authEvent('signup', user.id, user.email, undefined, {
+            auth: { role: 'USER' },
+            performance: { duration_ms: duration }
+          })
+        }
+      } catch (error) {
+        const duration = logger.endTimer(startTime)
+        logger.error('Create user event failed', error as Error, {
+          auth: { email: user.email },
+          performance: { duration_ms: duration }
+        })
       }
     },
     async linkAccount({ user, account }) {
-      console.log(`[Auth] OAuth account (${account.provider}) linked to user: ${user.email}`)
+      logger.info('OAuth account linked to user', {
+        auth: {
+          userId: user.id,
+          email: user.email,
+          provider: account.provider,
+          providerAccountId: account.providerAccountId
+        },
+        database: { operation: 'link', model: 'Account' }
+      })
     }
   },
   pages: {
