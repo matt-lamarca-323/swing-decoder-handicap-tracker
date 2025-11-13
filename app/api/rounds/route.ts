@@ -2,14 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { roundSchema } from '@/lib/validation'
 import { z } from 'zod'
+import { getCurrentUser, isAdmin, createAuthErrorResponse } from '@/lib/auth-utils'
+import { Role } from '@prisma/client'
 
-// GET /api/rounds - Get all rounds (with optional userId filter)
+// GET /api/rounds - Get rounds (own rounds or all if admin)
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const currentUser = await getCurrentUser()
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
-    const whereClause = userId ? { userId: parseInt(userId) } : {}
+    let whereClause = {}
+
+    // If user is admin, they can see all rounds or filter by userId
+    if (currentUser.role === Role.ADMIN) {
+      whereClause = userId ? { userId: parseInt(userId) } : {}
+    } else {
+      // Regular users can only see their own rounds
+      whereClause = { userId: parseInt(currentUser.id) }
+    }
 
     const rounds = await prisma.round.findMany({
       where: whereClause,
@@ -28,6 +40,11 @@ export async function GET(request: NextRequest) {
     })
     return NextResponse.json(rounds)
   } catch (error) {
+    // Handle auth errors
+    if (error instanceof Error && (error.message.includes('Unauthorized') || error.message.includes('Forbidden'))) {
+      return createAuthErrorResponse(error, error.message.includes('Forbidden') ? 403 : 401)
+    }
+
     console.error('Error fetching rounds:', error)
     return NextResponse.json(
       { error: 'Failed to fetch rounds' },
@@ -39,6 +56,9 @@ export async function GET(request: NextRequest) {
 // POST /api/rounds - Create a new round
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const currentUser = await getCurrentUser()
+
     const body = await request.json()
 
     // Convert datePlayed to Date if it's a string
@@ -48,6 +68,14 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     const validatedData = roundSchema.parse(body)
+
+    // Check authorization: users can only create rounds for themselves, admins can create for anyone
+    if (currentUser.role !== Role.ADMIN && validatedData.userId !== parseInt(currentUser.id)) {
+      return createAuthErrorResponse(
+        new Error('Forbidden: You can only create rounds for yourself'),
+        403
+      )
+    }
 
     // Check if user exists
     const userExists = await prisma.user.findUnique({
@@ -82,6 +110,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(round, { status: 201 })
   } catch (error) {
+    // Handle auth errors
+    if (error instanceof Error && (error.message.includes('Unauthorized') || error.message.includes('Forbidden'))) {
+      return createAuthErrorResponse(error, error.message.includes('Forbidden') ? 403 : 401)
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

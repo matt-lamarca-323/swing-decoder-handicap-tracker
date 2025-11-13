@@ -11,6 +11,7 @@ Swing Decoder Handicap Tracker is a web application for tracking golf handicaps 
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: Auth.js (NextAuth.js v5) with Google OAuth
 - **Styling**: Bootstrap 5 + react-bootstrap
 - **Validation**: Zod for API input validation
 - **Runtime**: Node.js
@@ -24,10 +25,16 @@ Swing Decoder Handicap Tracker is a web application for tracking golf handicaps 
 npm install
 ```
 
-2. Configure the database:
+2. Configure the database and authentication:
    - Copy `.env.example` to `.env`
    - Update `DATABASE_URL` with your PostgreSQL connection string
    - Format: `postgresql://username:password@localhost:5432/swing_handicap_tracker?schema=public`
+   - Generate `AUTH_SECRET` with: `openssl rand -base64 32`
+   - Set `NEXTAUTH_URL` to `http://localhost:3000` (or your deployment URL)
+   - Get Google OAuth credentials from https://console.cloud.google.com/apis/credentials
+     - Create OAuth 2.0 Client ID
+     - Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+   - Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` from Google Console
 
 3. Run Prisma migrations (when database is configured):
 ```bash
@@ -62,37 +69,86 @@ npx prisma generate
 - **Create migration**: `npx prisma migrate dev --name migration_name`
 - **Reset database**: `npx prisma migrate reset`
 
-**Note**: The database is already set up with the User table. The initial migration is in `prisma/migrations/20241112000000_init_users_table/`.
+**Note**: The database is set up with User, Round, Account, Session, and VerificationToken tables for authentication.
 
 ## Project Structure
 
 ```
 app/
 ├── api/
-│   ├── users/             # API routes for user CRUD operations
+│   ├── auth/
+│   │   └── [...nextauth]/route.ts  # Auth.js API routes
+│   ├── users/             # API routes for user CRUD operations (protected)
 │   │   ├── route.ts      # GET (all users) and POST (create user)
 │   │   └── [id]/route.ts # GET, PUT, DELETE (single user)
-│   └── rounds/            # API routes for round CRUD operations
+│   └── rounds/            # API routes for round CRUD operations (protected)
 │       ├── route.ts      # GET (all rounds) and POST (create round)
 │       └── [id]/route.ts # GET, PUT, DELETE (single round)
-├── users/                 # User management pages
+├── auth/
+│   ├── signin/page.tsx   # Google sign-in page
+│   └── error/page.tsx    # Authentication error page
+├── users/                 # User management pages (protected)
 │   ├── page.tsx          # User list with table
 │   ├── new/page.tsx      # Create new user form
 │   └── [id]/edit/page.tsx # Edit user form
-├── layout.tsx            # Root layout with navigation
-├── page.tsx              # Homepage
+├── rounds/                # Round management pages (protected)
+│   ├── page.tsx          # Rounds list with table
+│   ├── new/page.tsx      # Create new round form
+│   └── [id]/edit/page.tsx # Edit round form
+├── layout.tsx            # Root layout with navigation and SessionProvider
+├── page.tsx              # Homepage (public)
 └── globals.css           # Global styles
 
 components/
-└── Navigation.tsx        # Bootstrap navbar component
+├── Navigation.tsx        # Bootstrap navbar with auth state
+└── SessionProvider.tsx   # NextAuth session provider wrapper
 
 lib/
+├── auth-utils.ts         # Authentication and authorization utilities
 ├── prisma.ts            # Prisma client singleton
 └── validation.ts        # Zod schemas for API validation
 
+types/
+└── next-auth.d.ts       # TypeScript type extensions for NextAuth
+
+auth.ts                   # Auth.js configuration with Google provider
+middleware.ts             # Route protection middleware
+
 prisma/
-└── schema.prisma        # Database schema
+└── schema.prisma        # Database schema with auth models
 ```
+
+## Authentication
+
+The application uses **Auth.js (NextAuth.js v5)** with Google OAuth for authentication.
+
+### User Roles
+
+- **ADMIN**: First user to sign in becomes admin. Can manage all users and rounds.
+- **USER**: Regular users. Can only manage their own rounds.
+
+### Authentication Flow
+
+1. User clicks "Sign In" and is redirected to `/auth/signin`
+2. User authenticates with Google OAuth
+3. On first sign-in, account is created and linked via email
+4. If an existing user with matching email exists, OAuth account is linked
+5. Session is created and user is redirected to `/users`
+
+### Protected Routes
+
+- **Public**: `/`, `/auth/signin`, `/auth/error`
+- **Protected**: All other routes require authentication
+- Middleware in `middleware.ts` handles route protection
+
+### Authorization Utilities (`lib/auth-utils.ts`)
+
+- `getSession()`: Get current session (returns null if not authenticated)
+- `getCurrentUser()`: Get current user (throws if not authenticated)
+- `isAdmin()`: Check if current user is admin
+- `requireAdmin()`: Require admin role (throws if not admin)
+- `canAccessResource(userId)`: Check if user can access resource
+- `requireResourceAccess(userId)`: Require resource access (throws if unauthorized)
 
 ## Database Schema
 
@@ -100,12 +156,17 @@ prisma/
 
 - `id` (Int, auto-increment): Primary key with SERIAL/IDENTITY
 - `email` (String, unique): User email address
+- `emailVerified` (DateTime, nullable): Email verification timestamp
 - `name` (String): Full name
+- `image` (String, nullable): Profile picture URL from OAuth provider
+- `role` (Role enum): USER or ADMIN (default: USER)
 - `handicapIndex` (Float, nullable): Golf handicap index
 - `rounds` (Int, default: 0): Number of rounds played
 - `createdAt` (DateTime): Creation timestamp
 - `updatedAt` (DateTime): Last update timestamp
 - `Round[]`: One-to-many relation with rounds
+- `accounts[]`: One-to-many relation with OAuth accounts
+- `sessions[]`: One-to-many relation with sessions
 
 ### Round Model
 
@@ -122,62 +183,155 @@ prisma/
 - `updatedAt` (DateTime): Last update timestamp
 - `user`: Relation to User model
 
+### Account Model (Auth.js)
+
+OAuth provider accounts linked to users.
+
+- `id` (String, cuid): Primary key
+- `userId` (Int, foreign key): References User.id (CASCADE on delete)
+- `type` (String): Account type (oauth, email, etc.)
+- `provider` (String): OAuth provider name (google)
+- `providerAccountId` (String): Provider's user ID
+- `refresh_token` (String, nullable): OAuth refresh token
+- `access_token` (String, nullable): OAuth access token
+- `expires_at` (Int, nullable): Token expiration timestamp
+- `token_type` (String, nullable): Token type
+- `scope` (String, nullable): OAuth scopes
+- `id_token` (String, nullable): OpenID Connect ID token
+- `session_state` (String, nullable): OAuth session state
+
+### Session Model (Auth.js)
+
+User sessions for authentication.
+
+- `id` (String, cuid): Primary key
+- `sessionToken` (String, unique): Session token
+- `userId` (Int, foreign key): References User.id (CASCADE on delete)
+- `expires` (DateTime): Session expiration timestamp
+
+### VerificationToken Model (Auth.js)
+
+Tokens for email verification and passwordless auth.
+
+- `identifier` (String): User identifier (email)
+- `token` (String, unique): Verification token
+- `expires` (DateTime): Token expiration timestamp
+
 ## API Endpoints
 
-All endpoints return JSON and use appropriate HTTP status codes.
+All endpoints return JSON and use appropriate HTTP status codes. All endpoints (except auth) require authentication.
+
+### Authentication Endpoints
+
+- `GET /api/auth/signin` - Sign in page (redirects to Google OAuth)
+- `GET /api/auth/signout` - Sign out endpoint
+- `GET /api/auth/session` - Get current session
+- `POST /api/auth/callback/google` - Google OAuth callback
 
 ### Users Collection
 
 - `GET /api/users` - Get all users (ordered by creation date, descending)
+  - **Auth**: Admin only
+  - Returns: Array of users
+
 - `POST /api/users` - Create new user
-  - Body: `{ email, name, handicapIndex?, rounds? }`
+  - **Auth**: Admin only
+  - Body: `{ email, name, handicapIndex?, rounds?, role? }`
   - Validates with Zod schema
+  - Returns: Created user (201)
 
 ### Individual User
 
 - `GET /api/users/[id]` - Get user by ID
+  - **Auth**: Own profile or admin
+  - Returns: User object
+
 - `PUT /api/users/[id]` - Update user
+  - **Auth**: Own profile or admin
   - Body: Partial user object
+  - Returns: Updated user
+
 - `DELETE /api/users/[id]` - Delete user
+  - **Auth**: Admin only
+  - Returns: Success message
 
 ### Rounds Collection
 
-- `GET /api/rounds` - Get all rounds (ordered by date played, descending)
-  - Query params: `?userId=123` (optional, filter by user)
+- `GET /api/rounds` - Get rounds (ordered by date played, descending)
+  - **Auth**: Required
+  - **Regular users**: See only their own rounds
+  - **Admins**: See all rounds (can filter with `?userId=123`)
+  - Query params: `?userId=123` (optional, admin only)
   - Includes user relation data
+  - Returns: Array of rounds
+
 - `POST /api/rounds` - Create new round
+  - **Auth**: Required
+  - **Regular users**: Can only create rounds for themselves
+  - **Admins**: Can create rounds for any user
   - Body: `{ userId, courseName, datePlayed, score, holes?, courseRating?, slopeRating?, notes? }`
   - Validates with Zod schema
   - Checks if user exists before creating
+  - Returns: Created round with user data (201)
 
 ### Individual Round
 
 - `GET /api/rounds/[id]` - Get round by ID
+  - **Auth**: Own round or admin
   - Includes user relation data
+  - Returns: Round object
+
 - `PUT /api/rounds/[id]` - Update round
+  - **Auth**: Own round or admin
+  - **Regular users**: Can only update their own rounds (cannot change userId)
+  - **Admins**: Can update any round and change ownership
   - Body: Partial round object
   - Validates userId if provided
+  - Returns: Updated round with user data
+
 - `DELETE /api/rounds/[id]` - Delete round
+  - **Auth**: Own round or admin
+  - Returns: Success message
+
+### Error Responses
+
+All protected endpoints return:
+- `401 Unauthorized`: No active session
+- `403 Forbidden`: Insufficient permissions
 
 ## Client-Side Pages
 
-- `/` - Homepage with links to user and round management
-- `/users` - User list table with edit/delete actions
-- `/users/new` - Create new user form
-- `/users/[id]/edit` - Edit existing user form
-- `/rounds` - Rounds list table showing all rounds for all users
-- `/rounds/new` - Create new round form
-- `/rounds/[id]/edit` - Edit existing round form
+### Public Pages
 
-All user-facing pages are client components (`'use client'`) using Bootstrap components for consistent styling.
+- `/` - Homepage (public, shows sign-in prompt if not authenticated)
+- `/auth/signin` - Google OAuth sign-in page
+- `/auth/error` - Authentication error page with helpful messages
+
+### Protected Pages (Require Authentication)
+
+- `/users` - User list table (admin only)
+- `/users/new` - Create new user form (admin only)
+- `/users/[id]/edit` - Edit user profile (own profile or admin)
+- `/rounds` - Rounds list table (own rounds or all if admin)
+- `/rounds/new` - Create new round form
+- `/rounds/[id]/edit` - Edit round (own round or admin)
+
+All user-facing pages are client components (`'use client'`) using Bootstrap components for consistent styling. The Navigation component shows/hides links based on authentication state and user role.
 
 ## Key Implementation Details
 
+- **Authentication**: Auth.js v5 with Google OAuth provider, database sessions via Prisma adapter
+- **Authorization**: Role-based access control (ADMIN vs USER) with utility functions in `lib/auth-utils.ts`
+- **First User**: Automatically assigned ADMIN role on account creation
+- **Account Linking**: Existing users matched by email are linked to OAuth accounts on first sign-in
+- **Middleware**: Route protection via `middleware.ts` - redirects unauthenticated users to sign-in
+- **Session Management**: Database sessions (not JWT) for better security and user management
 - **Prisma Client**: Singleton pattern in `lib/prisma.ts` prevents multiple instances in development
 - **Validation**: Zod schemas in `lib/validation.ts` ensure data integrity at API level
-- **Error Handling**: All API routes handle errors gracefully with appropriate status codes
+- **Error Handling**: All API routes handle auth errors (401/403) and other errors gracefully
 - **Bootstrap**: Imported globally in `app/layout.tsx`, components use react-bootstrap
-- **Navigation**: Shared navbar component included in root layout
+- **Navigation**: Shared navbar with conditional rendering based on auth state and role
+- **SessionProvider**: Wraps app in `layout.tsx` to provide session context to all components
 
 ## Testing
 
