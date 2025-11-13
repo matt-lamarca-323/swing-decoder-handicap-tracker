@@ -4,16 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Swing Decoder Handicap Tracker is a web application for tracking golf handicaps and managing user profiles. Built with Next.js 15, it provides full CRUD operations for user management with a clean Bootstrap-styled interface.
+Swing Decoder Handicap Tracker is a comprehensive web application for tracking golf performance, handicaps, and detailed round statistics. Built with Next.js 15, it provides intelligent golf statistics calculation, personalized dashboards, and full CRUD operations with automatic GIR, up & down, and putt distribution analysis.
 
 ## Technology Stack
 
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: Auth.js (NextAuth.js v5) with Google OAuth
+- **Authentication**: Auth.js (NextAuth.js v5) with Google OAuth and JWT sessions
 - **Styling**: Bootstrap 5 + react-bootstrap
 - **Validation**: Zod for API input validation
+- **Logging**: Structured JSON logging (Grafana/Loki compatible)
 - **Runtime**: Node.js
 
 ## Development Workflow
@@ -78,6 +79,8 @@ app/
 ├── api/
 │   ├── auth/
 │   │   └── [...nextauth]/route.ts  # Auth.js API routes
+│   ├── dashboard/
+│   │   └── route.ts      # GET dashboard statistics (GIR%, FIR%, putts, up & down%)
 │   ├── users/             # API routes for user CRUD operations (protected)
 │   │   ├── route.ts      # GET (all users) and POST (create user)
 │   │   └── [id]/route.ts # GET, PUT, DELETE (single user)
@@ -87,16 +90,18 @@ app/
 ├── auth/
 │   ├── signin/page.tsx   # Google sign-in page
 │   └── error/page.tsx    # Authentication error page
+├── dashboard/
+│   └── page.tsx          # Personalized user dashboard with stats
 ├── users/                 # User management pages (protected)
 │   ├── page.tsx          # User list with table
 │   ├── new/page.tsx      # Create new user form
 │   └── [id]/edit/page.tsx # Edit user form
 ├── rounds/                # Round management pages (protected)
 │   ├── page.tsx          # Rounds list with table
-│   ├── new/page.tsx      # Create new round form
-│   └── [id]/edit/page.tsx # Edit round form
+│   ├── new/page.tsx      # Create new round form (dual-mode: simple/detailed)
+│   └── [id]/edit/page.tsx # Edit round form (dual-mode: simple/detailed)
 ├── layout.tsx            # Root layout with navigation and SessionProvider
-├── page.tsx              # Homepage (public)
+├── page.tsx              # Homepage (redirects authenticated users to dashboard)
 └── globals.css           # Global styles
 
 components/
@@ -105,17 +110,19 @@ components/
 
 lib/
 ├── auth-utils.ts         # Authentication and authorization utilities
+├── golf-calculator.ts    # Golf statistics calculation engine (GIR, up & down, putts)
+├── logger.ts            # Structured JSON logging (Grafana/Loki compatible)
 ├── prisma.ts            # Prisma client singleton
 └── validation.ts        # Zod schemas for API validation
 
 types/
 └── next-auth.d.ts       # TypeScript type extensions for NextAuth
 
-auth.ts                   # Auth.js configuration with Google provider
+auth.ts                   # Auth.js configuration with Google provider and JWT sessions
 middleware.ts             # Route protection middleware
 
 prisma/
-└── schema.prisma        # Database schema with auth models
+└── schema.prisma        # Database schema with auth models and golf statistics
 ```
 
 ## Authentication
@@ -131,9 +138,11 @@ The application uses **Auth.js (NextAuth.js v5)** with Google OAuth for authenti
 
 1. User clicks "Sign In" and is redirected to `/auth/signin`
 2. User authenticates with Google OAuth
-3. On first sign-in, account is created and linked via email
-4. If an existing user with matching email exists, OAuth account is linked
-5. Session is created and user is redirected to `/users`
+3. On first sign-in, user account is created automatically
+4. First user to sign in receives ADMIN role in JWT callback
+5. If an existing user with matching email exists, OAuth account is linked
+6. JWT session is created with user data and role
+7. User is redirected to `/dashboard`
 
 ### Protected Routes
 
@@ -179,6 +188,15 @@ The application uses **Auth.js (NextAuth.js v5)** with Google OAuth for authenti
 - `courseRating` (Float, nullable): Course rating for handicap calculation
 - `slopeRating` (Int, nullable): Slope rating for handicap calculation
 - `notes` (String, nullable): Additional notes about the round
+- **Golf Statistics (Auto-calculated)**:
+  - `greensInRegulation` (Int, nullable): Number of greens hit in regulation (0-18)
+  - `fairwaysInRegulation` (Int, nullable): Number of fairways hit in regulation (0-14)
+  - `putts` (Int, nullable): Total putts for the round
+  - `upAndDowns` (Int, nullable): Successful up & downs (par saves from missed greens)
+  - `upAndDownAttempts` (Int, nullable): Total up & down attempts (missed greens)
+  - `girPutts` (Int, nullable): Total putts on greens hit in regulation
+  - `nonGirPutts` (Int, nullable): Total putts when green was missed
+  - `holeByHoleData` (Json, nullable): Detailed hole-by-hole scores, putts, fairways, and pars
 - `createdAt` (DateTime): Creation timestamp
 - `updatedAt` (DateTime): Last update timestamp
 - `user`: Relation to User model
@@ -269,9 +287,10 @@ All endpoints return JSON and use appropriate HTTP status codes. All endpoints (
   - **Auth**: Required
   - **Regular users**: Can only create rounds for themselves
   - **Admins**: Can create rounds for any user
-  - Body: `{ userId, courseName, datePlayed, score, holes?, courseRating?, slopeRating?, notes? }`
+  - Body: `{ userId, courseName, datePlayed, score, holes?, courseRating?, slopeRating?, notes?, putts?, greensInRegulation?, fairwaysInRegulation?, upAndDowns?, upAndDownAttempts?, girPutts?, nonGirPutts?, holeByHoleData? }`
   - Validates with Zod schema
   - Checks if user exists before creating
+  - Golf statistics auto-calculated in detailed mode or estimated in simple mode
   - Returns: Created round with user data (201)
 
 ### Individual Round
@@ -293,6 +312,22 @@ All endpoints return JSON and use appropriate HTTP status codes. All endpoints (
   - **Auth**: Own round or admin
   - Returns: Success message
 
+### Dashboard
+
+- `GET /api/dashboard` - Get comprehensive user statistics
+  - **Auth**: Required (returns stats for current user)
+  - **Returns**: Dashboard object with:
+    - User profile (handicapIndex, rounds count)
+    - Average score and best score
+    - Performance statistics:
+      - `greensInRegulationPct` (GIR%): Percentage of greens hit in regulation
+      - `fairwaysInRegulationPct` (FIR%): Percentage of fairways hit in regulation
+      - `avgPutts`: Average putts per round
+      - `upAndDownPct`: Percentage of successful up & downs
+      - `avgGirPutts`: Average putts on GIR holes
+      - `avgNonGirPutts`: Average putts on non-GIR holes
+    - `recentRounds`: Last 5 rounds with scores and dates
+
 ### Error Responses
 
 All protected endpoints return:
@@ -303,35 +338,278 @@ All protected endpoints return:
 
 ### Public Pages
 
-- `/` - Homepage (public, shows sign-in prompt if not authenticated)
+- `/` - Homepage (redirects authenticated users to `/dashboard`, unauthenticated to `/auth/signin`)
 - `/auth/signin` - Google OAuth sign-in page
 - `/auth/error` - Authentication error page with helpful messages
 
 ### Protected Pages (Require Authentication)
 
+- `/dashboard` - Personalized user dashboard showing:
+  - Handicap index and total rounds
+  - Average score and best score
+  - Performance statistics (GIR%, FIR%, avg putts, up & down%)
+  - Putt distribution (GIR putts vs non-GIR putts)
+  - Recent 5 rounds table
 - `/users` - User list table (admin only)
 - `/users/new` - Create new user form (admin only)
 - `/users/[id]/edit` - Edit user profile (own profile or admin)
 - `/rounds` - Rounds list table (own rounds or all if admin)
-- `/rounds/new` - Create new round form
-- `/rounds/[id]/edit` - Edit round (own round or admin)
+- `/rounds/new` - Create new round form with dual-mode entry:
+  - **Simple Mode**: Enter total score and putts (stats auto-estimated)
+  - **Detailed Mode**: Hole-by-hole scorecard with real-time stat calculation
+- `/rounds/[id]/edit` - Edit round with dual-mode editing:
+  - **Simple Mode**: Edit totals only
+  - **Detailed Mode**: Edit hole-by-hole data (if available)
+  - Prevents hole count changes when detailed data exists
 
 All user-facing pages are client components (`'use client'`) using Bootstrap components for consistent styling. The Navigation component shows/hides links based on authentication state and user role.
 
 ## Key Implementation Details
 
-- **Authentication**: Auth.js v5 with Google OAuth provider, database sessions via Prisma adapter
+- **Authentication**: Auth.js v5 with Google OAuth provider and JWT sessions
+  - JWT strategy used for Edge Runtime compatibility
+  - Custom cookie naming (`next-auth.session-token-jwt`) to avoid conflicts
+  - Structured logging throughout all auth callbacks and events
 - **Authorization**: Role-based access control (ADMIN vs USER) with utility functions in `lib/auth-utils.ts`
-- **First User**: Automatically assigned ADMIN role on account creation
+- **First User**: Automatically assigned ADMIN role in JWT callback on first sign-in
 - **Account Linking**: Existing users matched by email are linked to OAuth accounts on first sign-in
 - **Middleware**: Route protection via `middleware.ts` - redirects unauthenticated users to sign-in
-- **Session Management**: Database sessions (not JWT) for better security and user management
+- **Session Management**: JWT sessions for Edge Runtime compatibility and scalability
+- **Structured Logging**: Grafana/Loki-compatible JSON logging via `lib/logger.ts`
+  - Auth events (signin, signout, account linking)
+  - API requests and responses with timing
+  - Database queries with performance metrics
+  - Error tracking with context
+- **Golf Statistics Calculation**: Intelligent auto-calculation via `lib/golf-calculator.ts`
+  - **GIR Detection**: Based on (score - putts) ≤ (par - 2), or par with 2+ putts, or birdie/better
+  - **Up & Down**: Tracks par saves from missed greens
+  - **Putt Distribution**: Separates GIR putts from non-GIR putts for analysis
+  - **Dual-Mode Entry**: Simple (totals with estimation) vs Detailed (hole-by-hole with precise calculation)
 - **Prisma Client**: Singleton pattern in `lib/prisma.ts` prevents multiple instances in development
 - **Validation**: Zod schemas in `lib/validation.ts` ensure data integrity at API level
+  - User validation (email, name, handicapIndex, rounds)
+  - Round validation including all golf statistics fields
 - **Error Handling**: All API routes handle auth errors (401/403) and other errors gracefully
 - **Bootstrap**: Imported globally in `app/layout.tsx`, components use react-bootstrap
 - **Navigation**: Shared navbar with conditional rendering based on auth state and role
 - **SessionProvider**: Wraps app in `layout.tsx` to provide session context to all components
+
+## Golf Statistics Calculation
+
+The application includes an intelligent golf statistics calculation engine in `lib/golf-calculator.ts` that automatically calculates GIR, up & down, and putt distribution from hole-by-hole data or estimates from totals.
+
+### Core Functions
+
+#### `calculateGIR(par: number, score: number, putts: number): boolean`
+
+Determines if a green was hit in regulation using multiple detection methods:
+
+1. **Standard GIR**: `(score - putts) ≤ (par - 2)`
+   - Par 3: On green in 1 stroke
+   - Par 4: On green in 2 strokes
+   - Par 5: On green in 3 strokes
+
+2. **Par with multiple putts**: If score equals par and putts ≥ 2, assume GIR
+   - Example: Par 4 with score of 4 and 2 putts = GIR
+
+3. **Birdie or better**: Any score under par is assumed GIR
+   - Birdie, eagle, or better = GIR
+
+#### `calculateUpAndDown(hole: HoleData): boolean`
+
+Determines if an up & down was achieved:
+- Green must have been **missed** (not a GIR hole)
+- Score must equal **par** (par save)
+- Returns `true` for successful up & down, `false` otherwise
+
+#### `calculateRoundStats(holes: HoleData[]): CalculatedStats`
+
+Aggregates all hole data into round statistics:
+
+```typescript
+{
+  totalScore: number        // Sum of all hole scores
+  totalPutts: number        // Sum of all putts
+  greensInRegulation: number // Count of GIR holes
+  fairwaysInRegulation: number // Count of fairways hit (par 4s and 5s only)
+  upAndDowns: number        // Count of successful up & downs
+  upAndDownAttempts: number // Count of missed greens
+  girPutts: number          // Total putts on GIR holes
+  nonGirPutts: number       // Total putts on non-GIR holes
+  parOrBetter: number       // Count of holes at par or better
+}
+```
+
+### Dual-Mode Entry System
+
+#### Simple Mode (Totals Only)
+
+When users enter only total score and putts, the system estimates statistics:
+
+1. **GIR Estimation** based on average putts per hole:
+   - < 1.7 avg putts: ~30% GIR (struggling with putting)
+   - < 2.0 avg putts: ~65% GIR (excellent putting)
+   - < 2.2 avg putts: ~45% GIR (average)
+   - ≥ 2.2 avg putts: ~25% GIR (poor)
+
+2. **Up & Down Estimation**:
+   - Calculates missed greens = holes - estimatedGIR
+   - Estimates success rate based on score vs par
+   - Better scores suggest higher up & down success rate
+
+3. **Putt Distribution**:
+   - Assumes ~2 putts per GIR hole
+   - Remaining putts assigned to non-GIR holes
+
+#### Detailed Mode (Hole-by-Hole)
+
+When users enter hole-by-hole data:
+- Each hole is analyzed for GIR using the precise algorithm
+- Up & downs are calculated exactly from par saves on missed greens
+- Putt distribution is precisely tracked by GIR status
+- Fairway tracking available for par 4s and 5s
+- Real-time statistics preview during data entry
+
+### Standard Par Values
+
+The calculator includes standard par configurations:
+
+```typescript
+STANDARD_PARS = {
+  18: [4, 4, 3, 5, 4, 4, 3, 4, 5, 4, 5, 4, 3, 4, 4, 3, 4, 5], // Full round
+  9: [4, 4, 3, 5, 4, 4, 3, 4, 5] // Front 9
+}
+```
+
+Users can customize par values for individual holes to match the actual course layout.
+
+### Data Validation
+
+The `validateHoleData()` function ensures:
+- All holes have valid scores (> 0)
+- All holes have valid putt counts (≥ 0)
+- Par values are between 3 and 6
+- Data completeness before calculation
+
+## Structured Logging
+
+The application includes comprehensive structured logging via `lib/logger.ts` that outputs JSON-formatted logs compatible with Grafana and Loki.
+
+### Log Format
+
+All logs follow a consistent JSON structure:
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "level": "info|warn|error",
+  "service": "swing-handicap-tracker",
+  "environment": "development|production",
+  "event": "auth.signin|api.request|db.query|etc",
+  "message": "Human-readable message",
+  "context": {
+    // Event-specific data
+  }
+}
+```
+
+### Logger Functions
+
+#### Authentication Events
+
+```typescript
+logger.authEvent(
+  event: 'signin' | 'signout' | 'signup' | 'link_account',
+  userId?: string | number,
+  email?: string,
+  provider?: string,
+  context?: Record<string, any>
+)
+```
+
+Used in `auth.ts` for tracking:
+- User sign-ins and sign-outs
+- Account creation and linking
+- Authentication errors
+- Role assignments
+
+#### API Request/Response
+
+```typescript
+logger.apiRequest(
+  method: string,
+  path: string,
+  userId?: string | number,
+  userRole?: string,
+  context?: Record<string, any>
+)
+
+logger.apiResponse(
+  method: string,
+  path: string,
+  statusCode: number,
+  duration: number,
+  userId?: string | number,
+  context?: Record<string, any>
+)
+```
+
+Used in all API routes to track:
+- Request method and path
+- User ID and role
+- Response status and timing
+- Query parameters
+
+#### Database Operations
+
+```typescript
+logger.dbQuery(
+  operation: string,
+  model: string,
+  duration: number,
+  recordCount?: number,
+  context?: Record<string, any>
+)
+```
+
+Used to monitor:
+- Query types (findMany, create, update, delete)
+- Model being queried
+- Query duration
+- Number of records affected
+
+#### Error Logging
+
+```typescript
+logger.apiError(
+  error: Error,
+  method: string,
+  path: string,
+  userId?: string | number,
+  context?: Record<string, any>
+)
+```
+
+Captures:
+- Error message and stack trace
+- Request context
+- User information
+- Additional debugging context
+
+### Log Levels
+
+- **INFO**: Normal operations (requests, queries, auth events)
+- **WARN**: Unusual but handled situations
+- **ERROR**: Errors and exceptions with stack traces
+
+### Integration Points
+
+Logging is integrated throughout:
+- `auth.ts`: All callbacks (jwt, session, signIn) and events (signOut, linkAccount)
+- `app/api/users/route.ts`: User CRUD operations
+- `app/api/users/[id]/route.ts`: Individual user operations
+- `app/api/rounds/*`: Round CRUD operations (planned)
+- `app/api/dashboard/route.ts`: Dashboard statistics (planned)
 
 ## Testing
 
