@@ -17,20 +17,24 @@ export default function Navigation() {
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto">
-            <Link href="/" passHref legacyBehavior>
-              <Nav.Link>Home</Nav.Link>
-            </Link>
-            {session && (
+            {session ? (
               <>
+                <Link href="/dashboard" passHref legacyBehavior>
+                  <Nav.Link>Dashboard</Nav.Link>
+                </Link>
                 {session.user?.role === 'ADMIN' && (
                   <Link href="/users" passHref legacyBehavior>
                     <Nav.Link>Users</Nav.Link>
                   </Link>
                 )}
                 <Link href="/rounds" passHref legacyBehavior>
-                  <Nav.Link>My Rounds</Nav.Link>
+                  <Nav.Link>Rounds</Nav.Link>
                 </Link>
               </>
+            ) : (
+              <Link href="/" passHref legacyBehavior>
+                <Nav.Link>Home</Nav.Link>
+              </Link>
             )}
           </Nav>
           <Nav className="ms-3">

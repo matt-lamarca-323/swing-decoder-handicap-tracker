@@ -23,6 +23,12 @@ export const roundSchema = z.object({
   courseRating: z.number().positive().optional().nullable(),
   slopeRating: z.number().int().positive().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // Golf statistics
+  greensInRegulation: z.number().int().min(0).max(18).optional().nullable(),
+  fairwaysInRegulation: z.number().int().min(0).max(14).optional().nullable(),
+  putts: z.number().int().min(0).optional().nullable(),
+  upAndDowns: z.number().int().min(0).optional().nullable(),
+  upAndDownAttempts: z.number().int().min(0).optional().nullable(),
 })
 
 export const updateRoundSchema = roundSchema.partial()

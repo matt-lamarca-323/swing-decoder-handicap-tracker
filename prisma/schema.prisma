@@ -32,18 +32,26 @@ model User {
 }
 
 model Round {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseName   String
-  datePlayed   DateTime
-  score        Int
-  holes        Int      @default(18)
-  courseRating Float?
-  slopeRating  Int?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    Int      @id @default(autoincrement())
+  userId                Int
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseName            String
+  datePlayed            DateTime
+  score                 Int
+  holes                 Int      @default(18)
+  courseRating          Float?
+  slopeRating           Int?
+  notes                 String?
+
+  // Golf statistics
+  greensInRegulation    Int?     // Number of greens hit in regulation
+  fairwaysInRegulation  Int?     // Number of fairways hit in regulation
+  putts                 Int?     // Total putts for the round
+  upAndDowns            Int?     // Successful up and downs
+  upAndDownAttempts     Int?     // Total up and down attempts
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@index([userId])
 }
