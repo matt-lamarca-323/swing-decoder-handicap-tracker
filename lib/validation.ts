@@ -29,6 +29,9 @@ export const roundSchema = z.object({
   putts: z.number().int().min(0).optional().nullable(),
   upAndDowns: z.number().int().min(0).optional().nullable(),
   upAndDownAttempts: z.number().int().min(0).optional().nullable(),
+  girPutts: z.number().int().min(0).optional().nullable(),
+  nonGirPutts: z.number().int().min(0).optional().nullable(),
+  holeByHoleData: z.any().optional().nullable(), // JSON data
 })
 
 export const updateRoundSchema = roundSchema.partial()

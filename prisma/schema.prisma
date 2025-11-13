@@ -49,6 +49,9 @@ model Round {
   putts                 Int?     // Total putts for the round
   upAndDowns            Int?     // Successful up and downs
   upAndDownAttempts     Int?     // Total up and down attempts
+  girPutts              Int?     // Putts on greens hit in regulation
+  nonGirPutts           Int?     // Putts when green was missed
+  holeByHoleData        Json?    // Detailed hole-by-hole scores and stats
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
