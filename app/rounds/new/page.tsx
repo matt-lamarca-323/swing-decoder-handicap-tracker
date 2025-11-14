@@ -11,6 +11,7 @@ import {
   calculateRoundStats,
   validateHoleData,
   calculateGIR,
+  calculateUnderGIR,
   calculateUpAndDown,
   STANDARD_PARS
 } from '@/lib/golf-calculator'
@@ -448,6 +449,37 @@ export default function NewRoundPage() {
                           </td>
                         </tr>
 
+                        {/* Under GIR Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Under GIR</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => {
+                            const hasValidData = hole.score > 0 && hole.putts >= 0
+                            const hitUnderGIR = hasValidData ? calculateUnderGIR(hole.par, hole.score, hole.putts) : false
+                            return (
+                              <td key={`undergir-${hole.holeNumber}`}>
+                                {hasValidData && (
+                                  <span className={hitUnderGIR ? 'text-primary fw-bold' : 'text-muted'}>
+                                    {hitUnderGIR ? '⭐' : '—'}
+                                  </span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="fw-bold bg-warning">
+                            {(() => {
+                              const front9 = holeData.slice(0, Math.min(9, holes))
+                              const underGIRHit = front9.filter(h => {
+                                const hasValidData = h.score > 0 && h.putts >= 0
+                                return hasValidData && calculateUnderGIR(h.par, h.score, h.putts)
+                              }).length
+                              const underGIRTotal = front9.filter(h => h.par > 3).length
+                              if (underGIRTotal === 0) return '-'
+                              const underGIRPct = ((underGIRHit / underGIRTotal) * 100).toFixed(0)
+                              return `${underGIRHit}/${underGIRTotal} (${underGIRPct}%)`
+                            })()}
+                          </td>
+                        </tr>
+
                         {/* Par Save Row */}
                         <tr>
                           <td className="fw-bold bg-light">Par Save</td>
@@ -680,6 +712,50 @@ export default function NewRoundPage() {
                                 const girTotal = allHoles.length
                                 const girPct = ((girHit / girTotal) * 100).toFixed(0)
                                 return `${girHit}/${girTotal} (${girPct}%)`
+                              })()}
+                            </td>
+                          </tr>
+
+                          {/* Under GIR Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Under GIR</td>
+                            {holeData.slice(9, 18).map((hole) => {
+                              const hasValidData = hole.score > 0 && hole.putts >= 0
+                              const hitUnderGIR = hasValidData ? calculateUnderGIR(hole.par, hole.score, hole.putts) : false
+                              return (
+                                <td key={`undergir-${hole.holeNumber}`}>
+                                  {hasValidData && (
+                                    <span className={hitUnderGIR ? 'text-primary fw-bold' : 'text-muted'}>
+                                      {hitUnderGIR ? '⭐' : '—'}
+                                    </span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {(() => {
+                                const back9 = holeData.slice(9, 18)
+                                const underGIRHit = back9.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  return hasValidData && calculateUnderGIR(h.par, h.score, h.putts)
+                                }).length
+                                const underGIRTotal = back9.filter(h => h.par > 3).length
+                                if (underGIRTotal === 0) return '-'
+                                const underGIRPct = ((underGIRHit / underGIRTotal) * 100).toFixed(0)
+                                return `${underGIRHit}/${underGIRTotal} (${underGIRPct}%)`
+                              })()}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {(() => {
+                                const allHoles = holeData.slice(0, 18)
+                                const underGIRHit = allHoles.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  return hasValidData && calculateUnderGIR(h.par, h.score, h.putts)
+                                }).length
+                                const underGIRTotal = allHoles.filter(h => h.par > 3).length
+                                if (underGIRTotal === 0) return '-'
+                                const underGIRPct = ((underGIRHit / underGIRTotal) * 100).toFixed(0)
+                                return `${underGIRHit}/${underGIRTotal} (${underGIRPct}%)`
                               })()}
                             </td>
                           </tr>

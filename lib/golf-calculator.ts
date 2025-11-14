@@ -15,6 +15,7 @@ export interface CalculatedStats {
   totalScore: number
   totalPutts: number
   greensInRegulation: number
+  underGIR: number
   fairwaysInRegulation: number
   upAndDowns: number
   upAndDownAttempts: number
@@ -63,6 +64,28 @@ export function calculateGIR(par: number, score: number, putts: number): boolean
 }
 
 /**
+ * Determine if the green was reached under regulation (putting for eagle)
+ * Under GIR definition: Reaching the green in (par - 3) or fewer strokes
+ *
+ * Examples:
+ * - Par 5 reached in 2 strokes: Under GIR (eagle putt)
+ * - Par 4 reached in 1 stroke: Under GIR (eagle putt)
+ * - Par 3 reached in 0 strokes: Not applicable in normal play
+ */
+export function calculateUnderGIR(par: number, score: number, putts: number): boolean {
+  const strokesBeforeGreen = score - putts
+  const underGIRTarget = par - 3
+
+  // Under GIR only applies to par 4s and par 5s
+  if (par <= 3) {
+    return false
+  }
+
+  // Reached green in par - 3 or fewer strokes (eagle opportunity)
+  return strokesBeforeGreen <= underGIRTarget && strokesBeforeGreen > 0
+}
+
+/**
  * Determine if hole resulted in successful up and down
  * Up and down: Missing the green but getting up and down for par
  */
@@ -91,6 +114,7 @@ export function calculateRoundStats(holes: HoleData[]): CalculatedStats {
   let totalScore = 0
   let totalPutts = 0
   let greensInRegulation = 0
+  let underGIR = 0
   let fairwaysInRegulation = 0
   let upAndDowns = 0
   let upAndDownAttempts = 0
@@ -109,6 +133,12 @@ export function calculateRoundStats(holes: HoleData[]): CalculatedStats {
       girPutts += hole.putts
     } else {
       nonGirPutts += hole.putts
+    }
+
+    // Calculate Under GIR (putting for eagle)
+    const hitUnderGIR = calculateUnderGIR(hole.par, hole.score, hole.putts)
+    if (hitUnderGIR) {
+      underGIR++
     }
 
     // Calculate up and down
@@ -147,6 +177,7 @@ export function calculateRoundStats(holes: HoleData[]): CalculatedStats {
     totalScore,
     totalPutts,
     greensInRegulation,
+    underGIR,
     fairwaysInRegulation,
     upAndDowns,
     upAndDownAttempts,

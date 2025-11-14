@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateGIR,
+  calculateUnderGIR,
   calculateUpAndDown,
   calculateRoundStats,
   generateDefaultHoles,
@@ -135,6 +136,86 @@ describe('Golf Calculator', () => {
     })
   })
 
+  describe('calculateUnderGIR', () => {
+    describe('Under GIR cases (eagle opportunities)', () => {
+      it('should return true for par 5 reached in 2 strokes (eagle putt)', () => {
+        // Par 5, score 4, 2 putts = reached in 2 strokes
+        expect(calculateUnderGIR(5, 4, 2)).toBe(true)
+      })
+
+      it('should return true for par 5 reached in 1 stroke (albatross putt)', () => {
+        // Par 5, score 3, 2 putts = reached in 1 stroke
+        expect(calculateUnderGIR(5, 3, 2)).toBe(true)
+      })
+
+      it('should return true for par 4 reached in 1 stroke (eagle putt)', () => {
+        // Par 4, score 3, 2 putts = reached in 1 stroke
+        expect(calculateUnderGIR(4, 3, 2)).toBe(true)
+      })
+
+      it('should return true for par 4 reached in 1 stroke with 1 putt (holed eagle)', () => {
+        // Par 4, score 2, 1 putt = reached in 1 stroke
+        expect(calculateUnderGIR(4, 2, 1)).toBe(true)
+      })
+    })
+
+    describe('NOT Under GIR cases', () => {
+      it('should return false for par 5 reached in 3 strokes (regular GIR)', () => {
+        // Par 5, score 5, 2 putts = reached in 3 strokes (GIR but not Under GIR)
+        expect(calculateUnderGIR(5, 5, 2)).toBe(false)
+      })
+
+      it('should return false for par 4 reached in 2 strokes (regular GIR)', () => {
+        // Par 4, score 4, 2 putts = reached in 2 strokes (GIR but not Under GIR)
+        expect(calculateUnderGIR(4, 4, 2)).toBe(false)
+      })
+
+      it('should return false for par 5 reached in 4 strokes (missed GIR)', () => {
+        // Par 5, score 6, 2 putts = reached in 4 strokes
+        expect(calculateUnderGIR(5, 6, 2)).toBe(false)
+      })
+
+      it('should return false for par 4 reached in 3 strokes (missed GIR)', () => {
+        // Par 4, score 5, 2 putts = reached in 3 strokes
+        expect(calculateUnderGIR(4, 5, 2)).toBe(false)
+      })
+
+      it('should return false for par 3 (Under GIR not applicable)', () => {
+        // Par 3, score 2, 1 putt = hole in one (not Under GIR by definition)
+        expect(calculateUnderGIR(3, 2, 1)).toBe(false)
+      })
+
+      it('should return false for par 3 with any score', () => {
+        expect(calculateUnderGIR(3, 3, 2)).toBe(false)
+        expect(calculateUnderGIR(3, 4, 2)).toBe(false)
+      })
+    })
+
+    describe('edge cases', () => {
+      it('should return false when strokes to green is 0 or negative', () => {
+        // Par 5, score 2, 3 putts would imply -1 strokes to green
+        expect(calculateUnderGIR(5, 2, 3)).toBe(false)
+      })
+
+      it('should handle par 6 reached in 3 strokes', () => {
+        // Par 6, score 5, 2 putts = reached in 3 strokes (par - 3)
+        expect(calculateUnderGIR(6, 5, 2)).toBe(true)
+      })
+
+      it('should handle 0 putts (holed out for eagle)', () => {
+        // Par 5, score 3, 0 putts = holed out in 3 strokes (NOT Under GIR)
+        // Under GIR requires reaching in 2 or fewer for par 5
+        expect(calculateUnderGIR(5, 3, 0)).toBe(false)
+      })
+
+      it('should return false for par 5 eagle made (but reached in 3)', () => {
+        // Par 5, score 3, 1 putt = reached in 2 (Under GIR!)
+        // This is actually Under GIR
+        expect(calculateUnderGIR(5, 3, 1)).toBe(true)
+      })
+    })
+  })
+
   describe('calculateRoundStats', () => {
     it('should calculate stats for perfect round (all GIR, all pars)', () => {
       const holes: HoleData[] = [
@@ -154,6 +235,7 @@ describe('Golf Calculator', () => {
       expect(stats.totalScore).toBe(36)
       expect(stats.totalPutts).toBe(18)
       expect(stats.greensInRegulation).toBe(9)
+      expect(stats.underGIR).toBe(0) // No eagle opportunities
       expect(stats.fairwaysInRegulation).toBe(6) // 7 fairway holes, 6 hit
       expect(stats.upAndDowns).toBe(0)
       expect(stats.upAndDownAttempts).toBe(0)
@@ -236,6 +318,26 @@ describe('Golf Calculator', () => {
 
       expect(stats.fairwaysInRegulation).toBe(0)
       expect(stats.totalScore).toBe(7)
+    })
+
+    it('should track Under GIR (eagle opportunities)', () => {
+      const holes: HoleData[] = [
+        { holeNumber: 1, par: 5, score: 4, putts: 2, fairwayHit: true },  // Par 5 in 2 strokes: Under GIR!
+        { holeNumber: 2, par: 4, score: 3, putts: 2, fairwayHit: true },  // Par 4 in 1 stroke: Under GIR!
+        { holeNumber: 3, par: 3, score: 2, putts: 1 },                    // Par 3: Not Under GIR
+        { holeNumber: 4, par: 5, score: 3, putts: 1, fairwayHit: true },  // Par 5 in 2 strokes: Under GIR!
+        { holeNumber: 5, par: 4, score: 4, putts: 2, fairwayHit: true },  // Par 4 in 2 strokes: GIR, not Under
+        { holeNumber: 6, par: 5, score: 5, putts: 2, fairwayHit: true },  // Par 5 in 3 strokes: GIR, not Under
+        { holeNumber: 7, par: 4, score: 2, putts: 1, fairwayHit: true },  // Par 4 in 1 stroke: Under GIR!
+        { holeNumber: 8, par: 4, score: 5, putts: 2, fairwayHit: false }, // Missed green
+        { holeNumber: 9, par: 5, score: 6, putts: 2, fairwayHit: true },  // Missed green
+      ]
+
+      const stats = calculateRoundStats(holes)
+
+      expect(stats.underGIR).toBe(4) // Holes 1, 2, 4, 7
+      expect(stats.greensInRegulation).toBe(7) // Holes 1-7 (all made GIR)
+      expect(stats.totalScore).toBe(34) // 4+3+2+3+4+5+2+5+6
     })
 
     it('should skip par 3s for fairway calculation', () => {
