@@ -23,6 +23,9 @@ export default function NewRoundPage() {
   const [error, setError] = useState<string | null>(null)
   const [entryMode, setEntryMode] = useState<'simple' | 'detailed'>('simple')
 
+  // Two-step workflow state
+  const [roundInfoSubmitted, setRoundInfoSubmitted] = useState(false)
+
   // Simple mode fields
   const [courseName, setCourseName] = useState('')
   const [datePlayed, setDatePlayed] = useState('')
@@ -69,6 +72,25 @@ export default function NewRoundPage() {
     const newHoleData = [...holeData]
     newHoleData[index] = { ...newHoleData[index], [field]: value }
     setHoleData(newHoleData)
+  }
+
+  const handleRoundInfoSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Validate round information
+    if (!courseName || !datePlayed) {
+      setError('Please fill in all required round information fields')
+      return
+    }
+    setError(null)
+    setRoundInfoSubmitted(true)
+    // Regenerate hole data if holes changed
+    if (entryMode === 'detailed') {
+      setHoleData(generateDefaultHoles(holes))
+    }
+  }
+
+  const handleEditRoundInfo = () => {
+    setRoundInfoSubmitted(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,11 +191,25 @@ export default function NewRoundPage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      <Form onSubmit={handleSubmit}>
-        {/* Basic Information */}
+      {/* Step 1: Round Information */}
+      <Form onSubmit={roundInfoSubmitted ? handleSubmit : handleRoundInfoSubmit}>
         <Card className="mb-4">
-          <Card.Header className="bg-primary text-white">
-            <h5 className="mb-0">Round Information</h5>
+          <Card.Header className={roundInfoSubmitted ? "bg-success text-white" : "bg-primary text-white"}>
+            <div className="d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">
+                {roundInfoSubmitted ? "✓ " : ""}Round Information
+              </h5>
+              {roundInfoSubmitted && (
+                <Button
+                  variant="light"
+                  size="sm"
+                  onClick={handleEditRoundInfo}
+                  type="button"
+                >
+                  Edit
+                </Button>
+              )}
+            </div>
           </Card.Header>
           <Card.Body>
             <Row>
@@ -186,6 +222,7 @@ export default function NewRoundPage() {
                     value={courseName}
                     onChange={(e) => setCourseName(e.target.value)}
                     placeholder="e.g., Pebble Beach Golf Links"
+                    disabled={roundInfoSubmitted}
                   />
                 </Form.Group>
               </Col>
@@ -197,6 +234,7 @@ export default function NewRoundPage() {
                     required
                     value={datePlayed}
                     onChange={(e) => setDatePlayed(e.target.value)}
+                    disabled={roundInfoSubmitted}
                   />
                 </Form.Group>
               </Col>
@@ -209,6 +247,7 @@ export default function NewRoundPage() {
                   <Form.Select
                     value={holes}
                     onChange={(e) => handleHolesChange(Number(e.target.value))}
+                    disabled={roundInfoSubmitted}
                   >
                     <option value={9}>9 Holes</option>
                     <option value={18}>18 Holes</option>
@@ -224,6 +263,7 @@ export default function NewRoundPage() {
                     value={courseRating}
                     onChange={(e) => setCourseRating(e.target.value ? Number(e.target.value) : '')}
                     placeholder="e.g., 72.3"
+                    disabled={roundInfoSubmitted}
                   />
                 </Form.Group>
               </Col>
@@ -235,14 +275,26 @@ export default function NewRoundPage() {
                     value={slopeRating}
                     onChange={(e) => setSlopeRating(e.target.value ? Number(e.target.value) : '')}
                     placeholder="e.g., 135"
+                    disabled={roundInfoSubmitted}
                   />
                 </Form.Group>
               </Col>
             </Row>
+
+            {!roundInfoSubmitted && (
+              <div className="d-flex justify-content-end mt-3">
+                <Button variant="primary" type="submit" size="lg">
+                  Continue to Score Entry →
+                </Button>
+              </div>
+            )}
           </Card.Body>
         </Card>
 
-        {/* Score Entry Mode Selection */}
+        {/* Step 2: Score Entry - Only shown after Round Info is submitted */}
+        {roundInfoSubmitted && (
+          <>
+            {/* Score Entry Mode Selection */}
         <Card className="mb-4">
           <Card.Header className="bg-info text-white">
             <h5 className="mb-0">Score Entry</h5>
@@ -864,6 +916,8 @@ export default function NewRoundPage() {
             Cancel
           </Link>
         </div>
+          </>
+        )}
       </Form>
     </Container>
   )
