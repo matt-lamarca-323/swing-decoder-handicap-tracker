@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Container, Table, Button, Alert, Spinner, Badge } from 'react-bootstrap'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
 
 interface Round {
   id: number
@@ -109,6 +110,7 @@ export default function RoundsPage() {
               <th>Score</th>
               <th>Holes</th>
               <th>Rating/Slope</th>
+              <th>Differential</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -139,6 +141,23 @@ export default function RoundsPage() {
                   {round.courseRating && round.slopeRating
                     ? `${round.courseRating} / ${round.slopeRating}`
                     : 'N/A'}
+                </td>
+                <td>
+                  {(() => {
+                    const differential = calculateHandicapDifferential(
+                      round.score,
+                      round.courseRating,
+                      round.slopeRating
+                    )
+                    if (differential !== null) {
+                      return (
+                        <Badge bg="info" className="fs-6">
+                          {differential.toFixed(1)}
+                        </Badge>
+                      )
+                    }
+                    return <span className="text-muted">—</span>
+                  })()}
                 </td>
                 <td>
                   {round.notes ? (

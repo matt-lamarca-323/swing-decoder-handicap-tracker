@@ -22,3 +22,74 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Golf Scorecard Score Shapes */
+.score-eagle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #000;
+  font-weight: bold;
+}
+
+.score-birdie {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  font-weight: bold;
+}
+
+.score-par {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-weight: normal;
+}
+
+.score-bogey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #000;
+  font-weight: bold;
+}
+
+.score-double-bogey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #000;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #000;
+  font-weight: bold;
+}
+
+/* USGA Scorecard Colors */
+.usga-header {
+  background-color: #e8e5d9 !important;
+}
+
+.usga-front {
+  background-color: #fff9e6 !important;
+}
+
+.usga-back {
+  background-color: #fff9e6 !important;
+}
+
+.usga-total {
+  background-color: #e8f5e8 !important;
+}

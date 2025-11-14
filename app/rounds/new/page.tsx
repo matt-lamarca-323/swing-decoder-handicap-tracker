@@ -305,29 +305,28 @@ export default function NewRoundPage() {
                     GIR, up & down stats will be calculated automatically!
                   </small>
                 </Alert>
-                <div className="table-responsive">
-                  <Table bordered hover size="sm">
-                    <thead className="table-light">
-                      <tr>
-                        <th style={{width: '60px'}}>Hole</th>
-                        <th style={{width: '60px'}}>Par</th>
-                        <th>Score *</th>
-                        <th>Putts *</th>
-                        <th>Fairway</th>
-                        <th style={{width: '60px'}}>GIR</th>
-                        <th style={{width: '80px'}}>Up&Down</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holeData.slice(0, holes).map((hole, index) => {
-                        const hasValidData = hole.score > 0 && hole.putts >= 0
-                        const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
-                        const upDownResult = hasValidData ? calculateUpAndDown(hole.par, hole.score, hole.putts, hitGIR) : { isAttempt: false, isSuccess: false }
-
-                        return (
-                          <tr key={hole.holeNumber}>
-                            <td className="text-center"><strong>{hole.holeNumber}</strong></td>
-                            <td>
+                {/* Front 9 Scorecard */}
+                <div className="mb-4">
+                  <h6 className="text-muted mb-2">Front 9</h6>
+                  <div className="table-responsive">
+                    <Table bordered size="sm" className="scorecard-table text-center">
+                      <thead className="table-light">
+                        <tr>
+                          <th style={{width: '80px'}}></th>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => (
+                            <th key={`h-${hole.holeNumber}`} className="text-center fw-bold" style={{minWidth: '60px'}}>
+                              {hole.holeNumber}
+                            </th>
+                          ))}
+                          <th className="text-center bg-warning fw-bold" style={{minWidth: '60px'}}>FRONT</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Par Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Par</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole, index) => (
+                            <td key={`par-${hole.holeNumber}`}>
                               <Form.Control
                                 type="number"
                                 size="sm"
@@ -335,78 +334,425 @@ export default function NewRoundPage() {
                                 max={6}
                                 value={hole.par}
                                 onChange={(e) => handleHoleChange(index, 'par', Number(e.target.value))}
+                                className="text-center"
                               />
                             </td>
-                            <td>
+                          ))}
+                          <td className="fw-bold bg-warning">
+                            {holeData.slice(0, Math.min(9, holes)).reduce((sum, h) => sum + h.par, 0)}
+                          </td>
+                        </tr>
+
+                        {/* Score Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Score *</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole, index) => (
+                            <td key={`score-${hole.holeNumber}`}>
                               <Form.Control
                                 type="number"
                                 size="sm"
                                 min={1}
                                 value={hole.score || ''}
                                 onChange={(e) => handleHoleChange(index, 'score', Number(e.target.value))}
-                                placeholder="Score"
+                                placeholder="-"
+                                className="text-center"
                               />
                             </td>
-                            <td>
+                          ))}
+                          <td className="fw-bold bg-warning">
+                            {holeData.slice(0, Math.min(9, holes)).reduce((sum, h) => sum + (h.score || 0), 0) || '-'}
+                          </td>
+                        </tr>
+
+                        {/* Putts Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Putts *</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole, index) => (
+                            <td key={`putts-${hole.holeNumber}`}>
                               <Form.Control
                                 type="number"
                                 size="sm"
                                 min={0}
                                 value={hole.putts || ''}
                                 onChange={(e) => handleHoleChange(index, 'putts', Number(e.target.value))}
-                                placeholder="Putts"
+                                placeholder="-"
+                                className="text-center"
                               />
                             </td>
-                            <td>
-                              {hole.par > 3 && (
+                          ))}
+                          <td className="fw-bold bg-warning">
+                            {holeData.slice(0, Math.min(9, holes)).reduce((sum, h) => sum + (h.putts || 0), 0) || '-'}
+                          </td>
+                        </tr>
+
+                        {/* Fairway Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Fairway</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole, index) => (
+                            <td key={`fw-${hole.holeNumber}`}>
+                              {hole.par > 3 ? (
                                 <Form.Select
                                   size="sm"
                                   value={hole.fairwayHit === undefined ? '' : hole.fairwayHit ? 'true' : 'false'}
                                   onChange={(e) => handleHoleChange(index, 'fairwayHit', e.target.value === '' ? undefined : e.target.value === 'true')}
+                                  className="text-center"
                                 >
                                   <option value="">-</option>
                                   <option value="true">✓</option>
                                   <option value="false">✗</option>
                                 </Form.Select>
+                              ) : (
+                                <span className="text-muted">-</span>
                               )}
                             </td>
-                            <td className="text-center">
-                              {hasValidData && (
-                                <span className={hitGIR ? 'text-success' : 'text-muted'}>
-                                  {hitGIR ? '✓' : '✗'}
-                                </span>
-                              )}
-                            </td>
-                            <td className="text-center">
-                              {hasValidData && upDownResult.isAttempt && (
-                                <span className={upDownResult.isSuccess ? 'text-success' : 'text-danger'}>
-                                  {upDownResult.isSuccess ? '✓' : '✗'}
-                                </span>
-                              )}
-                              {hasValidData && !upDownResult.isAttempt && (
-                                <span className="text-muted small">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </Table>
+                          ))}
+                          <td className="fw-bold bg-warning">
+                            {(() => {
+                              const front9 = holeData.slice(0, Math.min(9, holes))
+                              const firHit = front9.filter(h => h.par > 3 && h.fairwayHit === true).length
+                              const firTotal = front9.filter(h => h.par > 3).length
+                              if (firTotal === 0) return '-'
+                              const firPct = ((firHit / firTotal) * 100).toFixed(0)
+                              return `${firHit}/${firTotal} (${firPct}%)`
+                            })()}
+                          </td>
+                        </tr>
+
+                        {/* GIR Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">GIR</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => {
+                            const hasValidData = hole.score > 0 && hole.putts >= 0
+                            const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
+                            return (
+                              <td key={`gir-${hole.holeNumber}`}>
+                                {hasValidData && (
+                                  <span className={hitGIR ? 'text-success fw-bold' : 'text-muted'}>
+                                    {hitGIR ? '✓' : '✗'}
+                                  </span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="fw-bold bg-warning">
+                            {(() => {
+                              const front9 = holeData.slice(0, Math.min(9, holes))
+                              const girHit = front9.filter(h => {
+                                const hasValidData = h.score > 0 && h.putts >= 0
+                                return hasValidData && calculateGIR(h.par, h.score, h.putts)
+                              }).length
+                              const girTotal = front9.length
+                              const girPct = ((girHit / girTotal) * 100).toFixed(0)
+                              return `${girHit}/${girTotal} (${girPct}%)`
+                            })()}
+                          </td>
+                        </tr>
+
+                        {/* Par Save Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Par Save</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => {
+                            const hasValidData = hole.score > 0 && hole.putts >= 0
+                            const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
+                            const upDownResult = hasValidData ? calculateUpAndDown(hole.par, hole.score, hole.putts, hitGIR) : { isAttempt: false, isSuccess: false }
+                            return (
+                              <td key={`ud-${hole.holeNumber}`}>
+                                {hasValidData && upDownResult.isAttempt && (
+                                  <span className={upDownResult.isSuccess ? 'text-success fw-bold' : 'text-danger'}>
+                                    {upDownResult.isSuccess ? '✓' : '✗'}
+                                  </span>
+                                )}
+                                {hasValidData && !upDownResult.isAttempt && (
+                                  <span className="text-muted">-</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="fw-bold bg-warning">
+                            {(() => {
+                              const front9 = holeData.slice(0, Math.min(9, holes))
+                              const parSaves = front9.filter(h => {
+                                const hasValidData = h.score > 0 && h.putts >= 0
+                                if (!hasValidData) return false
+                                const hitGIR = calculateGIR(h.par, h.score, h.putts)
+                                const upDownResult = calculateUpAndDown(h.par, h.score, h.putts, hitGIR)
+                                return upDownResult.isAttempt && upDownResult.isSuccess
+                              }).length
+                              const parSaveAttempts = front9.filter(h => {
+                                const hasValidData = h.score > 0 && h.putts >= 0
+                                if (!hasValidData) return false
+                                const hitGIR = calculateGIR(h.par, h.score, h.putts)
+                                const upDownResult = calculateUpAndDown(h.par, h.score, h.putts, hitGIR)
+                                return upDownResult.isAttempt
+                              }).length
+                              if (parSaveAttempts === 0) return '-'
+                              const parSavePct = ((parSaves / parSaveAttempts) * 100).toFixed(0)
+                              return `${parSaves}/${parSaveAttempts} (${parSavePct}%)`
+                            })()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </Table>
+                  </div>
                 </div>
 
-                {calculatedStats && (
-                  <Alert variant="success" className="mt-3">
-                    <Row>
-                      <Col xs={6} md={3}><strong>Total:</strong> {calculatedStats.totalScore}</Col>
-                      <Col xs={6} md={3}><strong>Putts:</strong> {calculatedStats.totalPutts}</Col>
-                      <Col xs={6} md={3}><strong>GIR:</strong> {calculatedStats.greensInRegulation}/{holes}</Col>
-                      <Col xs={6} md={3}><strong>FIR:</strong> {calculatedStats.fairwaysInRegulation}</Col>
-                      <Col xs={6} md={3}><strong>Up & Down:</strong> {calculatedStats.upAndDowns}/{calculatedStats.upAndDownAttempts}</Col>
-                      <Col xs={6} md={3}><strong>GIR Putts:</strong> {calculatedStats.girPutts}</Col>
-                      <Col xs={6} md={3}><strong>Non-GIR Putts:</strong> {calculatedStats.nonGirPutts}</Col>
-                      <Col xs={6} md={3}><strong>Par or Better:</strong> {calculatedStats.parOrBetter}</Col>
-                    </Row>
-                  </Alert>
+                {/* Back 9 Scorecard */}
+                {holes === 18 && (
+                  <div className="mb-4">
+                    <h6 className="text-muted mb-2">Back 9</h6>
+                    <div className="table-responsive">
+                      <Table bordered size="sm" className="scorecard-table text-center">
+                        <thead className="table-light">
+                          <tr>
+                            <th style={{width: '80px'}}></th>
+                            {holeData.slice(9, 18).map((hole) => (
+                              <th key={`h-${hole.holeNumber}`} className="text-center fw-bold" style={{minWidth: '60px'}}>
+                                {hole.holeNumber}
+                              </th>
+                            ))}
+                            <th className="text-center bg-warning fw-bold" style={{minWidth: '60px'}}>BACK</th>
+                            <th className="text-center bg-success fw-bold" style={{minWidth: '70px'}}>TOTAL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {/* Par Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Par</td>
+                            {holeData.slice(9, 18).map((hole, index) => {
+                              const actualIndex = index + 9
+                              return (
+                                <td key={`par-${hole.holeNumber}`}>
+                                  <Form.Control
+                                    type="number"
+                                    size="sm"
+                                    min={3}
+                                    max={6}
+                                    value={hole.par}
+                                    onChange={(e) => handleHoleChange(actualIndex, 'par', Number(e.target.value))}
+                                    className="text-center"
+                                  />
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {holeData.slice(9, 18).reduce((sum, h) => sum + h.par, 0)}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {holeData.slice(0, 18).reduce((sum, h) => sum + h.par, 0)}
+                            </td>
+                          </tr>
+
+                          {/* Score Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Score *</td>
+                            {holeData.slice(9, 18).map((hole, index) => {
+                              const actualIndex = index + 9
+                              return (
+                                <td key={`score-${hole.holeNumber}`}>
+                                  <Form.Control
+                                    type="number"
+                                    size="sm"
+                                    min={1}
+                                    value={hole.score || ''}
+                                    onChange={(e) => handleHoleChange(actualIndex, 'score', Number(e.target.value))}
+                                    placeholder="-"
+                                    className="text-center"
+                                  />
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {holeData.slice(9, 18).reduce((sum, h) => sum + (h.score || 0), 0) || '-'}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {holeData.slice(0, 18).reduce((sum, h) => sum + (h.score || 0), 0) || '-'}
+                            </td>
+                          </tr>
+
+                          {/* Putts Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Putts *</td>
+                            {holeData.slice(9, 18).map((hole, index) => {
+                              const actualIndex = index + 9
+                              return (
+                                <td key={`putts-${hole.holeNumber}`}>
+                                  <Form.Control
+                                    type="number"
+                                    size="sm"
+                                    min={0}
+                                    value={hole.putts || ''}
+                                    onChange={(e) => handleHoleChange(actualIndex, 'putts', Number(e.target.value))}
+                                    placeholder="-"
+                                    className="text-center"
+                                  />
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {holeData.slice(9, 18).reduce((sum, h) => sum + (h.putts || 0), 0) || '-'}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {holeData.slice(0, 18).reduce((sum, h) => sum + (h.putts || 0), 0) || '-'}
+                            </td>
+                          </tr>
+
+                          {/* Fairway Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Fairway</td>
+                            {holeData.slice(9, 18).map((hole, index) => {
+                              const actualIndex = index + 9
+                              return (
+                                <td key={`fw-${hole.holeNumber}`}>
+                                  {hole.par > 3 ? (
+                                    <Form.Select
+                                      size="sm"
+                                      value={hole.fairwayHit === undefined ? '' : hole.fairwayHit ? 'true' : 'false'}
+                                      onChange={(e) => handleHoleChange(actualIndex, 'fairwayHit', e.target.value === '' ? undefined : e.target.value === 'true')}
+                                      className="text-center"
+                                    >
+                                      <option value="">-</option>
+                                      <option value="true">✓</option>
+                                      <option value="false">✗</option>
+                                    </Form.Select>
+                                  ) : (
+                                    <span className="text-muted">-</span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {(() => {
+                                const back9 = holeData.slice(9, 18)
+                                const firHit = back9.filter(h => h.par > 3 && h.fairwayHit === true).length
+                                const firTotal = back9.filter(h => h.par > 3).length
+                                if (firTotal === 0) return '-'
+                                const firPct = ((firHit / firTotal) * 100).toFixed(0)
+                                return `${firHit}/${firTotal} (${firPct}%)`
+                              })()}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {(() => {
+                                const allHoles = holeData.slice(0, 18)
+                                const firHit = allHoles.filter(h => h.par > 3 && h.fairwayHit === true).length
+                                const firTotal = allHoles.filter(h => h.par > 3).length
+                                if (firTotal === 0) return '-'
+                                const firPct = ((firHit / firTotal) * 100).toFixed(0)
+                                return `${firHit}/${firTotal} (${firPct}%)`
+                              })()}
+                            </td>
+                          </tr>
+
+                          {/* GIR Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">GIR</td>
+                            {holeData.slice(9, 18).map((hole) => {
+                              const hasValidData = hole.score > 0 && hole.putts >= 0
+                              const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
+                              return (
+                                <td key={`gir-${hole.holeNumber}`}>
+                                  {hasValidData && (
+                                    <span className={hitGIR ? 'text-success fw-bold' : 'text-muted'}>
+                                      {hitGIR ? '✓' : '✗'}
+                                    </span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {(() => {
+                                const back9 = holeData.slice(9, 18)
+                                const girHit = back9.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  return hasValidData && calculateGIR(h.par, h.score, h.putts)
+                                }).length
+                                const girTotal = back9.length
+                                const girPct = ((girHit / girTotal) * 100).toFixed(0)
+                                return `${girHit}/${girTotal} (${girPct}%)`
+                              })()}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {(() => {
+                                const allHoles = holeData.slice(0, 18)
+                                const girHit = allHoles.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  return hasValidData && calculateGIR(h.par, h.score, h.putts)
+                                }).length
+                                const girTotal = allHoles.length
+                                const girPct = ((girHit / girTotal) * 100).toFixed(0)
+                                return `${girHit}/${girTotal} (${girPct}%)`
+                              })()}
+                            </td>
+                          </tr>
+
+                          {/* Par Save Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Par Save</td>
+                            {holeData.slice(9, 18).map((hole) => {
+                              const hasValidData = hole.score > 0 && hole.putts >= 0
+                              const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
+                              const upDownResult = hasValidData ? calculateUpAndDown(hole.par, hole.score, hole.putts, hitGIR) : { isAttempt: false, isSuccess: false }
+                              return (
+                                <td key={`ud-${hole.holeNumber}`}>
+                                  {hasValidData && upDownResult.isAttempt && (
+                                    <span className={upDownResult.isSuccess ? 'text-success fw-bold' : 'text-danger'}>
+                                      {upDownResult.isSuccess ? '✓' : '✗'}
+                                    </span>
+                                  )}
+                                  {hasValidData && !upDownResult.isAttempt && (
+                                    <span className="text-muted">-</span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                            <td className="fw-bold bg-warning">
+                              {(() => {
+                                const back9 = holeData.slice(9, 18)
+                                const parSaves = back9.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  if (!hasValidData) return false
+                                  const hitGIR = calculateGIR(h.par, h.score, h.putts)
+                                  const upDownResult = calculateUpAndDown(h.par, h.score, h.putts, hitGIR)
+                                  return upDownResult.isAttempt && upDownResult.isSuccess
+                                }).length
+                                const parSaveAttempts = back9.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  if (!hasValidData) return false
+                                  const hitGIR = calculateGIR(h.par, h.score, h.putts)
+                                  const upDownResult = calculateUpAndDown(h.par, h.score, h.putts, hitGIR)
+                                  return upDownResult.isAttempt
+                                }).length
+                                if (parSaveAttempts === 0) return '-'
+                                const parSavePct = ((parSaves / parSaveAttempts) * 100).toFixed(0)
+                                return `${parSaves}/${parSaveAttempts} (${parSavePct}%)`
+                              })()}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {(() => {
+                                const allHoles = holeData.slice(0, 18)
+                                const parSaves = allHoles.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  if (!hasValidData) return false
+                                  const hitGIR = calculateGIR(h.par, h.score, h.putts)
+                                  const upDownResult = calculateUpAndDown(h.par, h.score, h.putts, hitGIR)
+                                  return upDownResult.isAttempt && upDownResult.isSuccess
+                                }).length
+                                const parSaveAttempts = allHoles.filter(h => {
+                                  const hasValidData = h.score > 0 && h.putts >= 0
+                                  if (!hasValidData) return false
+                                  const hitGIR = calculateGIR(h.par, h.score, h.putts)
+                                  const upDownResult = calculateUpAndDown(h.par, h.score, h.putts, hitGIR)
+                                  return upDownResult.isAttempt
+                                }).length
+                                if (parSaveAttempts === 0) return '-'
+                                const parSavePct = ((parSaves / parSaveAttempts) * 100).toFixed(0)
+                                return `${parSaves}/${parSaveAttempts} (${parSavePct}%)`
+                              })()}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </Table>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

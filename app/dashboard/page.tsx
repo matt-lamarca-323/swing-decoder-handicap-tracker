@@ -207,7 +207,7 @@ export default function DashboardPage() {
             <Card.Body>
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <Card.Title className="text-muted small mb-1">Up & Down</Card.Title>
+                  <Card.Title className="text-muted small mb-1">Par Save</Card.Title>
                   <div className="h3 mb-0 fw-bold">
                     {stats.upAndDownPct !== null ? `${stats.upAndDownPct.toFixed(1)}%` : 'N/A'}
                   </div>
