@@ -10,6 +10,8 @@ import {
   generateDefaultHoles,
   calculateRoundStats,
   validateHoleData,
+  calculateGIR,
+  calculateUpAndDown,
   STANDARD_PARS
 } from '@/lib/golf-calculator'
 
@@ -312,57 +314,82 @@ export default function NewRoundPage() {
                         <th>Score *</th>
                         <th>Putts *</th>
                         <th>Fairway</th>
+                        <th style={{width: '60px'}}>GIR</th>
+                        <th style={{width: '80px'}}>Up&Down</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {holeData.slice(0, holes).map((hole, index) => (
-                        <tr key={hole.holeNumber}>
-                          <td className="text-center"><strong>{hole.holeNumber}</strong></td>
-                          <td>
-                            <Form.Control
-                              type="number"
-                              size="sm"
-                              min={3}
-                              max={6}
-                              value={hole.par}
-                              onChange={(e) => handleHoleChange(index, 'par', Number(e.target.value))}
-                            />
-                          </td>
-                          <td>
-                            <Form.Control
-                              type="number"
-                              size="sm"
-                              min={1}
-                              value={hole.score || ''}
-                              onChange={(e) => handleHoleChange(index, 'score', Number(e.target.value))}
-                              placeholder="Score"
-                            />
-                          </td>
-                          <td>
-                            <Form.Control
-                              type="number"
-                              size="sm"
-                              min={0}
-                              value={hole.putts || ''}
-                              onChange={(e) => handleHoleChange(index, 'putts', Number(e.target.value))}
-                              placeholder="Putts"
-                            />
-                          </td>
-                          <td>
-                            {hole.par > 3 && (
-                              <Form.Select
+                      {holeData.slice(0, holes).map((hole, index) => {
+                        const hasValidData = hole.score > 0 && hole.putts >= 0
+                        const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
+                        const upDownResult = hasValidData ? calculateUpAndDown(hole.par, hole.score, hole.putts, hitGIR) : { isAttempt: false, isSuccess: false }
+
+                        return (
+                          <tr key={hole.holeNumber}>
+                            <td className="text-center"><strong>{hole.holeNumber}</strong></td>
+                            <td>
+                              <Form.Control
+                                type="number"
                                 size="sm"
-                                value={hole.fairwayHit === undefined ? '' : hole.fairwayHit ? 'true' : 'false'}
-                                onChange={(e) => handleHoleChange(index, 'fairwayHit', e.target.value === '' ? undefined : e.target.value === 'true')}
-                              >
-                                <option value="">-</option>
-                                <option value="true">✓</option>
-                                <option value="false">✗</option>
-                              </Form.Select>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                                min={3}
+                                max={6}
+                                value={hole.par}
+                                onChange={(e) => handleHoleChange(index, 'par', Number(e.target.value))}
+                              />
+                            </td>
+                            <td>
+                              <Form.Control
+                                type="number"
+                                size="sm"
+                                min={1}
+                                value={hole.score || ''}
+                                onChange={(e) => handleHoleChange(index, 'score', Number(e.target.value))}
+                                placeholder="Score"
+                              />
+                            </td>
+                            <td>
+                              <Form.Control
+                                type="number"
+                                size="sm"
+                                min={0}
+                                value={hole.putts || ''}
+                                onChange={(e) => handleHoleChange(index, 'putts', Number(e.target.value))}
+                                placeholder="Putts"
+                              />
+                            </td>
+                            <td>
+                              {hole.par > 3 && (
+                                <Form.Select
+                                  size="sm"
+                                  value={hole.fairwayHit === undefined ? '' : hole.fairwayHit ? 'true' : 'false'}
+                                  onChange={(e) => handleHoleChange(index, 'fairwayHit', e.target.value === '' ? undefined : e.target.value === 'true')}
+                                >
+                                  <option value="">-</option>
+                                  <option value="true">✓</option>
+                                  <option value="false">✗</option>
+                                </Form.Select>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              {hasValidData && (
+                                <span className={hitGIR ? 'text-success' : 'text-muted'}>
+                                  {hitGIR ? '✓' : '✗'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              {hasValidData && upDownResult.isAttempt && (
+                                <span className={upDownResult.isSuccess ? 'text-success' : 'text-danger'}>
+                                  {upDownResult.isSuccess ? '✓' : '✗'}
+                                </span>
+                              )}
+                              {hasValidData && !upDownResult.isAttempt && (
+                                <span className="text-muted small">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </Table>
                 </div>

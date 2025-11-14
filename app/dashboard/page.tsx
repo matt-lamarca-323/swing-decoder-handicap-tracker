@@ -8,7 +8,10 @@ import Link from 'next/link'
 
 interface DashboardStats {
   handicapIndex: number | null
+  calculatedHandicapIndex: number | null
+  numberOfDifferentialsUsed: number
   totalRounds: number
+  roundsWithDifferential: number
   averageScore: number | null
   greensInRegulationPct: number | null
   fairwaysInRegulationPct: number | null
@@ -20,6 +23,7 @@ interface DashboardStats {
     datePlayed: string
     score: number
     holes: number
+    handicapDifferential: number | null
   }>
 }
 
@@ -107,8 +111,18 @@ export default function DashboardPage() {
             <Card.Body className="text-center">
               <Card.Title className="text-muted small mb-2">Handicap Index</Card.Title>
               <div className="display-4 fw-bold text-primary">
-                {stats.handicapIndex !== null ? stats.handicapIndex.toFixed(1) : 'N/A'}
+                {stats.calculatedHandicapIndex !== null ? stats.calculatedHandicapIndex.toFixed(1) : 'N/A'}
               </div>
+              {stats.calculatedHandicapIndex !== null && (
+                <small className="text-muted">
+                  Based on {stats.numberOfDifferentialsUsed} best of {stats.roundsWithDifferential}
+                </small>
+              )}
+              {stats.calculatedHandicapIndex === null && stats.totalRounds > 0 && (
+                <small className="text-muted">
+                  Add course rating & slope to rounds
+                </small>
+              )}
             </Card.Body>
           </Card>
         </Col>
@@ -246,6 +260,7 @@ export default function DashboardPage() {
                       <th>Course</th>
                       <th>Score</th>
                       <th>Holes</th>
+                      <th>Differential</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -261,6 +276,13 @@ export default function DashboardPage() {
                           <Badge bg={round.holes === 18 ? 'primary' : 'secondary'}>
                             {round.holes}
                           </Badge>
+                        </td>
+                        <td>
+                          {round.handicapDifferential !== null ? (
+                            <Badge bg="info">{round.handicapDifferential.toFixed(1)}</Badge>
+                          ) : (
+                            <span className="text-muted small">N/A</span>
+                          )}
                         </td>
                         <td className="text-end">
                           <Link href={`/rounds/${round.id}/edit`} className="btn btn-sm btn-outline-secondary">

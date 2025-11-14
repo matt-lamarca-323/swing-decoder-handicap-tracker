@@ -4,6 +4,7 @@ import { roundSchema } from '@/lib/validation'
 import { z } from 'zod'
 import { getCurrentUser, isAdmin, createAuthErrorResponse } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
 
 // GET /api/rounds - Get rounds (own rounds or all if admin)
 export async function GET(request: NextRequest) {
@@ -89,6 +90,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Calculate handicap differential
+    const handicapDifferential = calculateHandicapDifferential(
+      validatedData.score,
+      validatedData.courseRating ?? null,
+      validatedData.slopeRating ?? null
+    )
+
     // Create round
     const round = await prisma.round.create({
       data: {
@@ -96,6 +104,7 @@ export async function POST(request: NextRequest) {
         datePlayed: validatedData.datePlayed instanceof Date
           ? validatedData.datePlayed
           : new Date(validatedData.datePlayed),
+        handicapDifferential,
       },
       include: {
         user: {

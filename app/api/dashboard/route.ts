@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser, createAuthErrorResponse } from '@/lib/auth-utils'
 import { logger } from '@/lib/logger'
+import { calculateHandicapIndexFromRounds, getNumberOfDifferentialsUsed } from '@/lib/handicap-calculator'
 
 export interface DashboardStats {
   handicapIndex: number | null
+  calculatedHandicapIndex: number | null
+  numberOfDifferentialsUsed: number
   totalRounds: number
+  roundsWithDifferential: number
   averageScore: number | null
   greensInRegulationPct: number | null
   fairwaysInRegulationPct: number | null
@@ -17,6 +21,7 @@ export interface DashboardStats {
     datePlayed: string
     score: number
     holes: number
+    handicapDifferential: number | null
   }>
 }
 
@@ -40,11 +45,14 @@ export async function GET() {
             datePlayed: true,
             score: true,
             holes: true,
+            courseRating: true,
+            slopeRating: true,
             greensInRegulation: true,
             fairwaysInRegulation: true,
             putts: true,
             upAndDowns: true,
             upAndDownAttempts: true,
+            handicapDifferential: true,
           },
           orderBy: {
             datePlayed: 'desc',
@@ -99,6 +107,20 @@ export async function GET() {
     const totalUpDownAttempts = roundsWithUpDown.reduce((sum, r) => sum + (r.upAndDownAttempts || 0), 0)
     const upAndDownPct = totalUpDownAttempts > 0 ? (totalUpDowns / totalUpDownAttempts) * 100 : null
 
+    // Calculate handicap index from rounds
+    const calculatedHandicapIndex = calculateHandicapIndexFromRounds(rounds.map(r => ({
+      id: r.id,
+      score: r.score,
+      courseRating: r.courseRating,
+      slopeRating: r.slopeRating,
+      handicapDifferential: r.handicapDifferential,
+      datePlayed: r.datePlayed,
+    })))
+
+    // Count rounds with valid differential
+    const roundsWithDifferential = rounds.filter(r => r.handicapDifferential !== null).length
+    const numberOfDifferentialsUsed = getNumberOfDifferentialsUsed(roundsWithDifferential)
+
     // Get recent 5 rounds
     const recentRounds = rounds.slice(0, 5).map(r => ({
       id: r.id,
@@ -106,11 +128,15 @@ export async function GET() {
       datePlayed: r.datePlayed.toISOString(),
       score: r.score,
       holes: r.holes,
+      handicapDifferential: r.handicapDifferential,
     }))
 
     const stats: DashboardStats = {
       handicapIndex: user.handicapIndex,
+      calculatedHandicapIndex,
+      numberOfDifferentialsUsed,
       totalRounds,
+      roundsWithDifferential,
       averageScore: averageScore ? Math.round(averageScore * 10) / 10 : null,
       greensInRegulationPct: greensInRegulationPct ? Math.round(greensInRegulationPct * 10) / 10 : null,
       fairwaysInRegulationPct: fairwaysInRegulationPct ? Math.round(fairwaysInRegulationPct * 10) / 10 : null,

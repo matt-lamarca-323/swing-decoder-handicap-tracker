@@ -197,6 +197,8 @@ The application uses **Auth.js (NextAuth.js v5)** with Google OAuth for authenti
   - `girPutts` (Int, nullable): Total putts on greens hit in regulation
   - `nonGirPutts` (Int, nullable): Total putts when green was missed
   - `holeByHoleData` (Json, nullable): Detailed hole-by-hole scores, putts, fairways, and pars
+- **Handicap Calculation**:
+  - `handicapDifferential` (Float, nullable): Calculated differential for handicap index using formula: (113 / Slope Rating) × (Score − Course Rating). Auto-calculated when courseRating and slopeRating are provided.
 - `createdAt` (DateTime): Creation timestamp
 - `updatedAt` (DateTime): Last update timestamp
 - `user`: Relation to User model
@@ -491,6 +493,234 @@ The `validateHoleData()` function ensures:
 - Par values are between 3 and 6
 - Data completeness before calculation
 
+## Handicap Calculation
+
+The application implements USGA (United States Golf Association) handicap calculation rules in `lib/handicap-calculator.ts`. The system automatically calculates handicap differentials for each round and determines the player's handicap index.
+
+### Handicap Differential
+
+A handicap differential represents how a player performed relative to the course difficulty.
+
+#### Formula
+
+```
+Handicap Differential = (113 / Slope Rating) × (Score − Course Rating)
+```
+
+#### Parameters
+
+- **Score**: The player's adjusted gross score for the round
+- **Course Rating**: Expected score for a scratch golfer (e.g., 72.3)
+- **Slope Rating**: Course difficulty for bogey golfer, scaled from 55-155 (113 is average)
+- **113**: Standard slope rating constant
+
+#### Implementation
+
+```typescript
+export function calculateHandicapDifferential(
+  score: number,
+  courseRating: number | null,
+  slopeRating: number | null
+): number | null {
+  if (!courseRating || !slopeRating) return null
+  const differential = (113 / slopeRating) * (score - courseRating)
+  return Math.round(differential * 10) / 10 // Round to 1 decimal
+}
+```
+
+**Auto-calculation**: Differentials are automatically calculated when:
+- Creating a new round with courseRating and slopeRating
+- Updating an existing round's score, courseRating, or slopeRating
+- Both courseRating and slopeRating must be provided
+
+**Storage**: Stored in `Round.handicapDifferential` field
+
+### Handicap Index
+
+The handicap index is calculated from a player's best recent differentials, following USGA rules.
+
+#### USGA Rules by Round Count
+
+| Rounds | Differentials Used | Calculation |
+|--------|-------------------|-------------|
+| 1-3    | 1                 | Lowest differential − 2.0 |
+| 4-5    | 1                 | Lowest differential − 1.0 |
+| 6      | 2                 | Average of lowest 2 − 1.0 |
+| 7-8    | 2                 | Average of lowest 2 |
+| 9-11   | 3                 | Average of lowest 3 |
+| 12-14  | 4                 | Average of lowest 4 |
+| 15-16  | 5                 | Average of lowest 5 |
+| 17-18  | 6                 | Average of lowest 6 |
+| 19     | 7                 | Average of lowest 7 |
+| 20+    | 8                 | Average of lowest 8 |
+
+#### Key Rules
+
+- **Minimum**: Handicap index cannot be negative (floor at 0.0)
+- **Precision**: Rounded to 1 decimal place
+- **Encouragement**: Extra deductions for beginners (1-6 rounds) to provide achievable targets
+
+#### Core Functions
+
+**`calculateHandicapIndex(differentials: number[]): number | null`**
+
+Calculates handicap index from an array of differentials:
+
+```typescript
+// Example: 6 rounds
+const differentials = [15.0, 12.0, 18.0, 14.0, 11.0, 16.0]
+const index = calculateHandicapIndex(differentials)
+// Result: 10.5 (average of lowest 2: (11.0 + 12.0) / 2 - 1.0)
+```
+
+**`calculateHandicapIndexFromRounds(rounds: RoundWithDifferential[]): number | null`**
+
+Calculates handicap index directly from round data:
+
+```typescript
+const rounds = await prisma.round.findMany({
+  where: { userId: 1 },
+  select: {
+    id: true,
+    score: true,
+    courseRating: true,
+    slopeRating: true,
+    handicapDifferential: true,
+    datePlayed: true
+  }
+})
+const index = calculateHandicapIndexFromRounds(rounds)
+```
+
+- Automatically filters out rounds with null differentials
+- Returns null if insufficient valid rounds
+
+**`getNumberOfDifferentialsUsed(totalRounds: number): number`**
+
+Returns how many differentials are used for a given round count (for display purposes):
+
+```typescript
+getNumberOfDifferentialsUsed(6)  // Returns 2
+getNumberOfDifferentialsUsed(20) // Returns 8
+```
+
+### Dashboard Integration
+
+The dashboard (`/app/api/dashboard/route.ts`) displays handicap information:
+
+```typescript
+interface DashboardStats {
+  handicapIndex: number | null              // Stored handicap (legacy)
+  calculatedHandicapIndex: number | null    // Live calculated index
+  numberOfDifferentialsUsed: number         // How many rounds used
+  roundsWithDifferential: number            // Total rounds with ratings
+  totalRounds: number                       // All rounds (including no ratings)
+  // ... other stats
+}
+```
+
+**Display Logic** (`/app/dashboard/page.tsx`):
+- Shows calculated handicap index prominently
+- Displays "Based on X best of Y" to show calculation transparency
+- Shows "Add course rating & slope to rounds" hint when ratings are missing
+- Each recent round shows its differential as a badge
+
+### Round Management
+
+**Creating Rounds**: When a round is created via `POST /api/rounds`:
+1. Validate courseRating and slopeRating (optional, nullable)
+2. Calculate handicapDifferential if ratings provided
+3. Store differential in database
+4. Return round with differential
+
+**Updating Rounds**: When a round is updated via `PUT /api/rounds/[id]`:
+1. Detect if score, courseRating, or slopeRating changed
+2. Recalculate differential with final values
+3. Update stored differential
+4. Return updated round
+
+**Viewing Rounds**: Differential displayed in:
+- Dashboard recent rounds table (badge format)
+- Rounds list page
+- Individual round detail page
+
+### Hole-by-Hole Statistics Display
+
+In detailed (hole-by-hole) entry mode, the application displays real-time calculated statistics for each hole:
+
+**Display Columns**:
+- **GIR** (Greens in Regulation): ✓ (green) if hit, ✗ (gray) if missed
+- **FIR** (Fairways in Regulation): User-entered via dropdown for par 4s and 5s
+- **Up & Down**: ✓ (green) if successful, ✗ (red) if failed, − if not applicable (GIR holes)
+
+**Real-time Calculation**:
+- GIR calculated using `calculateGIR(par, score, putts)` from golf-calculator
+- Up & Down calculated using `calculateUpAndDown(par, score, putts, hitGIR)`
+- Updates instantly as user enters scores and putts
+- Provides immediate feedback on performance
+
+**Implementation** (in `/app/rounds/new/page.tsx` and `/app/rounds/[id]/edit/page.tsx`):
+
+```tsx
+{holeData.map((hole, index) => {
+  const hasValidData = hole.score > 0 && hole.putts >= 0
+  const hitGIR = hasValidData ? calculateGIR(hole.par, hole.score, hole.putts) : false
+  const upDownResult = hasValidData ? calculateUpAndDown(hole.par, hole.score, hole.putts, hitGIR) : { isAttempt: false, isSuccess: false }
+
+  return (
+    <tr key={hole.holeNumber}>
+      {/* ... score, putts inputs ... */}
+      <td className="text-center">
+        {hasValidData && (
+          <span className={hitGIR ? 'text-success' : 'text-muted'}>
+            {hitGIR ? '✓' : '✗'}
+          </span>
+        )}
+      </td>
+      <td className="text-center">
+        {hasValidData && upDownResult.isAttempt && (
+          <span className={upDownResult.isSuccess ? 'text-success' : 'text-danger'}>
+            {upDownResult.isSuccess ? '✓' : '✗'}
+          </span>
+        )}
+      </td>
+    </tr>
+  )
+})}
+```
+
+### Testing
+
+Comprehensive unit tests for handicap calculations are in `lib/__tests__/handicap-calculator.test.ts` (35 tests):
+
+**Test Coverage**:
+1. **Handicap Differential Calculation** (11 tests)
+   - Valid calculations with various course ratings and slopes
+   - Null handling (missing ratings)
+   - Rounding to 1 decimal place
+   - Negative differentials (score below rating)
+   - Edge cases (very high slope, very low score)
+
+2. **Number of Differentials Used** (9 tests)
+   - All USGA round count ranges (1-3, 4-8, 9-11, etc.)
+   - Verification of correct differential count for each range
+
+3. **Handicap Index Calculation** (9 tests)
+   - All round count scenarios per USGA rules
+   - Proper averaging and deductions
+   - Negative index prevention (floor at 0)
+   - Rounding verification
+
+4. **Calculate from Rounds** (6 tests)
+   - Integration with round data structures
+   - Filtering null differentials
+   - Mixed valid/invalid differential handling
+
+**Running Handicap Tests**:
+```bash
+npm test -- handicap-calculator.test.ts --run
+```
+
 ## Structured Logging
 
 The application includes comprehensive structured logging via `lib/logger.ts` that outputs JSON-formatted logs compatible with Grafana and Loki.
@@ -620,7 +850,8 @@ The project uses **Vitest** as the test framework for unit testing business logi
 ```
 lib/__tests__/
 ├── validation.test.ts          # Tests for Zod validation schemas
-└── golf-calculator.test.ts     # Tests for golf statistics calculation engine
+├── golf-calculator.test.ts     # Tests for golf statistics calculation engine
+└── handicap-calculator.test.ts # Tests for USGA handicap calculations
 
 app/api/__tests__/
 ├── mocks/
@@ -635,7 +866,7 @@ app/api/__tests__/
 
 ### Test Coverage
 
-**109 unit tests** covering:
+**144 unit tests** covering:
 
 1. **Validation Logic** (48 tests)
    - User schema validation (17 tests)
@@ -669,7 +900,29 @@ app/api/__tests__/
    - validateHoleData() validation (7 tests)
    - estimateStatsFromTotals() estimation (5 tests)
 
-3. **Dashboard API Endpoint** (11 tests)
+3. **Handicap Calculator** (35 tests)
+   - calculateHandicapDifferential() function (11 tests)
+     - Valid calculations with various course ratings and slopes
+     - Null handling for missing ratings
+     - Rounding to 1 decimal place
+     - Negative differentials (score below rating)
+     - Edge cases (very high slope, very low score)
+   - getNumberOfDifferentialsUsed() function (9 tests)
+     - All USGA round count ranges (1-3, 4-8, 9-11, 12-14, 15-16, 17-18, 19, 20+)
+     - Verification of correct differential count for each range
+   - calculateHandicapIndex() function (9 tests)
+     - All round count scenarios per USGA rules
+     - Proper averaging and deductions for each tier
+     - Negative index prevention (floor at 0.0)
+     - Rounding to 1 decimal place
+     - Handling identical differentials
+   - calculateHandicapIndexFromRounds() function (6 tests)
+     - Integration with round data structures
+     - Filtering rounds with null differentials
+     - Mixed valid/invalid differential handling
+     - Proper calculation for various round counts
+
+4. **Dashboard API Endpoint** (11 tests)
    - GET /api/dashboard - User statistics calculation
    - Average score, GIR%, FIR%, putts, up & down%
    - Handling rounds with partial statistics
@@ -677,8 +930,9 @@ app/api/__tests__/
    - Recent rounds limiting (5 max)
    - Error handling (404, 500, auth errors)
    - Precision rounding validation
+   - Handicap index calculation and display
 
-4. **User API Endpoints** (23 tests - pre-existing)
+5. **User API Endpoints** (23 tests - pre-existing)
    - GET /api/users - List all users
    - POST /api/users - Create user with validation
    - GET /api/users/[id] - Get single user, 404 handling
@@ -686,11 +940,11 @@ app/api/__tests__/
    - DELETE /api/users/[id] - Delete user
    - Database error handling for all endpoints
 
-5. **Round API Endpoints** (25 tests - pre-existing)
+6. **Round API Endpoints** (25 tests - pre-existing)
    - GET /api/rounds - List all rounds, filter by userId
-   - POST /api/rounds - Create round with validation, user existence check
+   - POST /api/rounds - Create round with validation, user existence check, handicap differential calculation
    - GET /api/rounds/[id] - Get single round with user data, 404 handling
-   - PUT /api/rounds/[id] - Update round with validation, userId validation
+   - PUT /api/rounds/[id] - Update round with validation, userId validation, handicap differential recalculation
    - DELETE /api/rounds/[id] - Delete round
    - Database error handling for all endpoints
 

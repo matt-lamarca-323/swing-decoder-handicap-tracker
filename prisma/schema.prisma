@@ -53,6 +53,9 @@ model Round {
   nonGirPutts           Int?     // Putts when green was missed
   holeByHoleData        Json?    // Detailed hole-by-hole scores and stats
 
+  // Handicap calculation
+  handicapDifferential  Float?   // Calculated differential for handicap index
+
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

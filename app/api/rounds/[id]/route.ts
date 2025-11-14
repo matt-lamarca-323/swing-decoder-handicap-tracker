@@ -4,6 +4,7 @@ import { updateRoundSchema } from '@/lib/validation'
 import { z } from 'zod'
 import { getCurrentUser, requireResourceAccess, createAuthErrorResponse } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
 
 // GET /api/rounds/[id] - Get a single round (own round or admin)
 export async function GET(
@@ -108,6 +109,17 @@ export async function PUT(
       }
     }
 
+    // Recalculate handicap differential if relevant fields changed
+    const finalScore = validatedData.score ?? existingRound.score
+    const finalCourseRating = validatedData.courseRating ?? existingRound.courseRating
+    const finalSlopeRating = validatedData.slopeRating ?? existingRound.slopeRating
+
+    const handicapDifferential = calculateHandicapDifferential(
+      finalScore,
+      finalCourseRating,
+      finalSlopeRating
+    )
+
     // Update round
     const round = await prisma.round.update({
       where: { id: parseInt(params.id) },
@@ -118,6 +130,7 @@ export async function PUT(
             ? validatedData.datePlayed
             : new Date(validatedData.datePlayed)
           : undefined,
+        handicapDifferential,
       },
       include: {
         user: {
