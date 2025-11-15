@@ -1,14 +1,53 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { GET } from '../stats/route'
 import { NextRequest } from 'next/server'
-import { mockPrismaRound, resetMocks } from './mocks/prisma'
+
+// Mock getCurrentUser and isAdmin from auth-utils
+vi.mock('@/lib/auth-utils', () => ({
+  getCurrentUser: vi.fn(),
+  isAdmin: vi.fn()
+}))
+
+// Mock Prisma client - define functions inline to avoid hoisting issues
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    round: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn()
+    }
+  }
+}))
+
+// Mock golf calculator
+vi.mock('@/lib/golf-calculator', () => ({
+  calculateGIR: vi.fn((par: number, score: number, putts: number) => {
+    // Simple GIR calculation for testing: hit GIR if (score - putts) <= par - 2
+    return (score - putts) <= (par - 2)
+  })
+}))
+
+// Import after mocks
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser, isAdmin } from '@/lib/auth-utils'
 
 // Mock console methods to avoid cluttering test output
 vi.spyOn(console, 'error').mockImplementation(() => {})
 
 describe('GET /api/stats', () => {
   beforeEach(() => {
-    resetMocks()
+    vi.clearAllMocks()
+
+    // Default mock values
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: '1',
+      email: 'test@example.com',
+      name: 'Test User',
+      role: 'USER'
+    })
+    vi.mocked(isAdmin).mockResolvedValue(false)
   })
 
   const mockRounds = [
@@ -107,7 +146,7 @@ describe('GET /api/stats', () => {
   ]
 
   it('should fetch all-time stats successfully', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -120,7 +159,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should fetch last 5 rounds stats', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=last5')
     const response = await GET(request)
@@ -132,7 +171,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should fetch last 10 rounds stats', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=last10')
     const response = await GET(request)
@@ -143,7 +182,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate GIR percentage correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -156,7 +195,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate FIR percentage correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -168,7 +207,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate average putts correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -179,7 +218,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate FIR streak correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -190,7 +229,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate no 3-putt streak correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -201,7 +240,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate no double bogey streak correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -212,7 +251,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should filter by date range', async () => {
-    mockPrismaRound.findMany.mockResolvedValue([mockRounds[0]] as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue([mockRounds[0]] as any)
 
     const request = new NextRequest(
       'http://localhost:3000/api/stats?filter=daterange&startDate=2024-01-12&endDate=2024-01-20'
@@ -221,7 +260,7 @@ describe('GET /api/stats', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(mockPrismaRound.findMany).toHaveBeenCalledWith(
+    expect(vi.mocked(prisma.round.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           datePlayed: {
@@ -234,7 +273,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should filter by course name', async () => {
-    mockPrismaRound.findMany.mockResolvedValue([mockRounds[0]] as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue([mockRounds[0]] as any)
 
     const request = new NextRequest(
       'http://localhost:3000/api/stats?filter=course&courseName=Pebble%20Beach'
@@ -243,7 +282,7 @@ describe('GET /api/stats', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(mockPrismaRound.findMany).toHaveBeenCalledWith(
+    expect(vi.mocked(prisma.round.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           courseName: 'Pebble Beach',
@@ -253,7 +292,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should return zero stats when no rounds exist', async () => {
-    mockPrismaRound.findMany.mockResolvedValue([])
+    vi.mocked(prisma.round.findMany).mockResolvedValue([])
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -268,7 +307,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should handle database errors gracefully', async () => {
-    mockPrismaRound.findMany.mockRejectedValue(new Error('Database error'))
+    vi.mocked(prisma.round.findMany).mockRejectedValue(new Error('Database error'))
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -284,7 +323,7 @@ describe('GET /api/stats', () => {
       id: i + 1,
       datePlayed: new Date(2024, 0, i + 1),
     }))
-    mockPrismaRound.findMany.mockResolvedValue(manyRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(manyRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=last5')
     const response = await GET(request)
@@ -300,7 +339,7 @@ describe('GET /api/stats', () => {
       id: i + 1,
       datePlayed: new Date(2024, 0, i + 1),
     }))
-    mockPrismaRound.findMany.mockResolvedValue(manyRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(manyRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=last10')
     const response = await GET(request)
@@ -311,7 +350,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should include user information in rounds', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -323,7 +362,7 @@ describe('GET /api/stats', () => {
   })
 
   it('should calculate putts per GIR correctly', async () => {
-    mockPrismaRound.findMany.mockResolvedValue(mockRounds as any)
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
 
     const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
     const response = await GET(request)
@@ -331,5 +370,111 @@ describe('GET /api/stats', () => {
 
     expect(response.status).toBe(200)
     expect(data.stats.avgPuttsPerGIR).toBeGreaterThan(0)
+  })
+
+  it('should return current streaks in stats', async () => {
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
+
+    const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.stats.currentFIRStreak).toBeDefined()
+    expect(data.stats.currentNo3PuttStreak).toBeDefined()
+    expect(data.stats.currentNoDoubleBogeyStreak).toBeDefined()
+    expect(typeof data.stats.currentFIRStreak).toBe('number')
+    expect(typeof data.stats.currentNo3PuttStreak).toBe('number')
+    expect(typeof data.stats.currentNoDoubleBogeyStreak).toBe('number')
+  })
+
+  it('should return isAdmin flag', async () => {
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
+
+    const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.isAdmin).toBe(false)
+  })
+
+  it('should allow admin to view all users stats when adminMode=true', async () => {
+    vi.mocked(isAdmin).mockResolvedValue(true)
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: '1',
+      email: 'admin@example.com',
+      name: 'Admin User',
+      role: 'ADMIN'
+    })
+
+    const allRounds = [
+      ...mockRounds,
+      { ...mockRounds[0], id: 3, userId: 2 }
+    ]
+    vi.mocked(prisma.round.findMany).mockResolvedValue(allRounds as any)
+
+    const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime&adminMode=true')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.adminMode).toBe(true)
+    expect(data.isAdmin).toBe(true)
+    expect(vi.mocked(prisma.round.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({
+          userId: expect.anything()
+        })
+      })
+    )
+  })
+
+  it('should only show own stats for admin when adminMode=false', async () => {
+    vi.mocked(isAdmin).mockResolvedValue(true)
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: '1',
+      email: 'admin@example.com',
+      name: 'Admin User',
+      role: 'ADMIN'
+    })
+
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
+
+    const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.adminMode).toBe(false)
+    expect(data.isAdmin).toBe(true)
+    expect(vi.mocked(prisma.round.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 1
+        })
+      })
+    )
+  })
+
+  it('should not allow non-admin to use adminMode', async () => {
+    vi.mocked(isAdmin).mockResolvedValue(false)
+
+    vi.mocked(prisma.round.findMany).mockResolvedValue(mockRounds as any)
+
+    const request = new NextRequest('http://localhost:3000/api/stats?filter=alltime&adminMode=true')
+    const response = await GET(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.adminMode).toBe(false)
+    expect(data.isAdmin).toBe(false)
+    expect(vi.mocked(prisma.round.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 1
+        })
+      })
+    )
   })
 })

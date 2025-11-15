@@ -16,6 +16,9 @@ interface Stats {
   firStreak: number
   no3PuttStreak: number
   noDoubleBogeyStreak: number
+  currentFIRStreak: number
+  currentNo3PuttStreak: number
+  currentNoDoubleBogeyStreak: number
   totalGIR: number
   totalGIROpportunities: number
   totalFIR: number
@@ -29,6 +32,8 @@ export default function StatsPage() {
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [courses, setCourses] = useState<string[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminMode, setAdminMode] = useState(false)
 
   // Filter state
   const [filter, setFilter] = useState('alltime')
@@ -75,6 +80,11 @@ export default function StatsPage() {
         url += `&courseName=${encodeURIComponent(selectedCourse)}`
       }
 
+      // Add admin mode parameter
+      if (adminMode) {
+        url += `&adminMode=true`
+      }
+
       const response = await fetch(url)
 
       if (!response.ok) {
@@ -83,6 +93,7 @@ export default function StatsPage() {
 
       const data = await response.json()
       setStats(data.stats)
+      setIsAdmin(data.isAdmin)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -98,6 +109,17 @@ export default function StatsPage() {
     fetchStats()
   }
 
+  const handleAdminModeToggle = () => {
+    setAdminMode(!adminMode)
+  }
+
+  // Refetch when admin mode changes
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchStats()
+    }
+  }, [adminMode])
+
   if (status === 'loading' || loading) {
     return (
       <Container className="py-5 text-center">
@@ -112,9 +134,19 @@ export default function StatsPage() {
     <Container className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1>Golf Statistics</h1>
-        <Link href="/rounds" className="btn btn-secondary">
-          Back to Rounds
-        </Link>
+        <div className="d-flex gap-2">
+          {isAdmin && (
+            <Button
+              variant={adminMode ? 'warning' : 'outline-warning'}
+              onClick={handleAdminModeToggle}
+            >
+              {adminMode ? 'Admin Mode (All Users)' : 'My Stats Only'}
+            </Button>
+          )}
+          <Link href="/rounds" className="btn btn-secondary">
+            Back to Rounds
+          </Link>
+        </div>
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -300,8 +332,11 @@ export default function StatsPage() {
             <Col md={6} lg={4}>
               <Card className="h-100 border-success">
                 <Card.Body>
-                  <h6 className="text-muted mb-2">Longest FIR Streak</h6>
-                  <h2 className="mb-0 text-success">{stats.firStreak} holes</h2>
+                  <h6 className="text-muted mb-2">FIR Streak</h6>
+                  <h2 className="mb-1 text-success">{stats.firStreak} holes</h2>
+                  <small className="text-muted">Longest</small>
+                  <h4 className="mb-0 text-success mt-2">{stats.currentFIRStreak} holes</h4>
+                  <small className="text-muted">Current</small>
                 </Card.Body>
               </Card>
             </Col>
@@ -310,8 +345,11 @@ export default function StatsPage() {
             <Col md={6} lg={4}>
               <Card className="h-100 border-success">
                 <Card.Body>
-                  <h6 className="text-muted mb-2">Longest No 3-Putt Streak</h6>
-                  <h2 className="mb-0 text-success">{stats.no3PuttStreak} holes</h2>
+                  <h6 className="text-muted mb-2">No 3-Putt Streak</h6>
+                  <h2 className="mb-1 text-success">{stats.no3PuttStreak} holes</h2>
+                  <small className="text-muted">Longest</small>
+                  <h4 className="mb-0 text-success mt-2">{stats.currentNo3PuttStreak} holes</h4>
+                  <small className="text-muted">Current</small>
                 </Card.Body>
               </Card>
             </Col>
@@ -320,8 +358,11 @@ export default function StatsPage() {
             <Col md={6} lg={4}>
               <Card className="h-100 border-success">
                 <Card.Body>
-                  <h6 className="text-muted mb-2">Longest No Double Bogey Streak</h6>
-                  <h2 className="mb-0 text-success">{stats.noDoubleBogeyStreak} holes</h2>
+                  <h6 className="text-muted mb-2">No Double Bogey Streak</h6>
+                  <h2 className="mb-1 text-success">{stats.noDoubleBogeyStreak} holes</h2>
+                  <small className="text-muted">Longest</small>
+                  <h4 className="mb-0 text-success mt-2">{stats.currentNoDoubleBogeyStreak} holes</h4>
+                  <small className="text-muted">Current</small>
                 </Card.Body>
               </Card>
             </Col>

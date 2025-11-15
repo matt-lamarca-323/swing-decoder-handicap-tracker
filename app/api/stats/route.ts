@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth-utils'
+import { getCurrentUser, isAdmin } from '@/lib/auth-utils'
 import { calculateGIR } from '@/lib/golf-calculator'
+import { Role } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,10 +14,17 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const courseName = searchParams.get('courseName')
+    const adminMode = searchParams.get('adminMode') === 'true' // Admin viewing all users
+
+    // Check if user is admin
+    const userIsAdmin = await isAdmin()
 
     // Build where clause
-    const where: any = {
-      userId: user.id,
+    const where: any = {}
+
+    // If not in admin mode, or user is not admin, filter by userId
+    if (!adminMode || !userIsAdmin) {
+      where.userId = parseInt(user.id)
     }
 
     // Apply filters
@@ -61,9 +69,20 @@ export async function GET(request: NextRequest) {
       rounds,
       stats,
       filter,
+      adminMode: adminMode && userIsAdmin,
+      isAdmin: userIsAdmin,
     })
   } catch (error: any) {
     console.error('Error fetching stats:', error)
+
+    // Return 401 for authentication errors
+    if (error.message?.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -83,6 +102,9 @@ function calculateStats(rounds: any[]) {
       firStreak: 0,
       no3PuttStreak: 0,
       noDoubleBogeyStreak: 0,
+      currentFIRStreak: 0,
+      currentNo3PuttStreak: 0,
+      currentNoDoubleBogeyStreak: 0,
     }
   }
 
@@ -118,9 +140,10 @@ function calculateStats(rounds: any[]) {
 
     // Parse hole-by-hole data for detailed stats
     if (round.holeByHoleData) {
+      // Prisma's Json type automatically deserializes, so holeByHoleData is already an object/array
       const holeData = Array.isArray(round.holeByHoleData)
         ? round.holeByHoleData
-        : JSON.parse(round.holeByHoleData)
+        : (round.holeByHoleData as any)
 
       holeData.forEach((hole: any) => {
         // GIR calculation
@@ -191,6 +214,9 @@ function calculateStats(rounds: any[]) {
     firStreak: longestFIRStreak,
     no3PuttStreak: longestNo3PuttStreak,
     noDoubleBogeyStreak: longestNoDoubleBogeyStreak,
+    currentFIRStreak,
+    currentNo3PuttStreak,
+    currentNoDoubleBogeyStreak,
     totalGIR,
     totalGIROpportunities,
     totalFIR,
