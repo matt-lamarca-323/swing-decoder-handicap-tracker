@@ -13,7 +13,8 @@
       "WebSearch",
       "Bash(npm install:*)",
       "Bash(npm run dev:*)",
-      "Bash(node fix-admin-role.js:*)"
+      "Bash(node fix-admin-role.js:*)",
+      "WebFetch(domain:rapidapi.com)"
     ],
     "deny": [],
     "ask": []

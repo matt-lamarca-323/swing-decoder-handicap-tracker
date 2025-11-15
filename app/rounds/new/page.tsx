@@ -15,6 +15,8 @@ import {
   calculateUpAndDown,
   STANDARD_PARS
 } from '@/lib/golf-calculator'
+import GolfCourseSearch from '@/components/GolfCourseSearch'
+import type { GolfCourseDetails, GolfCourseTee } from '@/types/golf-course'
 
 export default function NewRoundPage() {
   const router = useRouter()
@@ -91,6 +93,32 @@ export default function NewRoundPage() {
 
   const handleEditRoundInfo = () => {
     setRoundInfoSubmitted(false)
+  }
+
+  const handleCourseSelect = (course: GolfCourseDetails, tee: GolfCourseTee) => {
+    // Set course name
+    setCourseName(`${course.club_name} - ${course.course_name}`)
+
+    // Set course and slope ratings
+    setCourseRating(tee.course_rating)
+    setSlopeRating(tee.slope_rating)
+
+    // Set number of holes
+    setHoles(tee.number_of_holes)
+
+    // Auto-populate hole data with par, yardage, and handicap
+    if (entryMode === 'detailed') {
+      const newHoleData = tee.holes.map((hole, index) => ({
+        holeNumber: index + 1,
+        par: hole.par,
+        score: 0,
+        putts: 0,
+        fairwayHit: undefined,
+        yardage: hole.yardage,
+        handicap: hole.handicap
+      }))
+      setHoleData(newHoleData)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,6 +240,19 @@ export default function NewRoundPage() {
             </div>
           </Card.Header>
           <Card.Body>
+            {/* Golf Course Search */}
+            <div className="mb-4">
+              <GolfCourseSearch
+                onCourseSelect={handleCourseSelect}
+                disabled={roundInfoSubmitted}
+                initialValue={courseName}
+              />
+            </div>
+
+            <div className="text-center text-muted mb-3">
+              <small>— OR enter manually —</small>
+            </div>
+
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">

@@ -16,6 +16,8 @@ import {
 } from '@/lib/golf-calculator'
 import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
 import { getScoreClass } from '@/lib/scorecard-utils'
+import GolfCourseSearch from '@/components/GolfCourseSearch'
+import type { GolfCourseDetails, GolfCourseTee } from '@/types/golf-course'
 
 export default function EditRoundPage() {
   const router = useRouter()
@@ -116,6 +118,32 @@ export default function EditRoundPage() {
 
   const handleEditRoundInfo = () => {
     setRoundInfoSubmitted(false)
+  }
+
+  const handleCourseSelect = (course: GolfCourseDetails, tee: GolfCourseTee) => {
+    // Set course name
+    setCourseName(`${course.club_name} - ${course.course_name}`)
+
+    // Set course and slope ratings
+    setCourseRating(tee.course_rating)
+    setSlopeRating(tee.slope_rating)
+
+    // Set number of holes
+    setHoles(tee.number_of_holes)
+
+    // Auto-populate hole data with par, yardage, and handicap (only if no detailed data exists)
+    if (entryMode === 'detailed' && !hasDetailedData) {
+      const newHoleData = tee.holes.map((hole, index) => ({
+        holeNumber: index + 1,
+        par: hole.par,
+        score: 0,
+        putts: 0,
+        fairwayHit: undefined,
+        yardage: hole.yardage,
+        handicap: hole.handicap
+      }))
+      setHoleData(newHoleData)
+    }
   }
 
   const handleHolesChange = (numHoles: number) => {
@@ -269,6 +297,19 @@ export default function EditRoundPage() {
             </div>
           </Card.Header>
           <Card.Body>
+            {/* Golf Course Search */}
+            <div className="mb-4">
+              <GolfCourseSearch
+                onCourseSelect={handleCourseSelect}
+                disabled={roundInfoSubmitted}
+                initialValue={courseName}
+              />
+            </div>
+
+            <div className="text-center text-muted mb-3">
+              <small>— OR enter manually —</small>
+            </div>
+
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
