@@ -3,10 +3,22 @@
 import { Navbar, Nav, Container, NavDropdown, Image, Button } from 'react-bootstrap'
 import Link from 'next/link'
 import { useSession, signIn, signOut } from 'next-auth/react'
+import { useAdminMode } from '@/contexts/AdminModeContext'
+import { useEffect } from 'react'
 
 export default function Navigation() {
   const { data: session, status } = useSession()
   const isLoading = status === 'loading'
+  const { adminMode, toggleAdminMode, setIsAdmin } = useAdminMode()
+
+  // Update isAdmin state when session changes
+  useEffect(() => {
+    if (session?.user?.role === 'ADMIN') {
+      setIsAdmin(true)
+    } else {
+      setIsAdmin(false)
+    }
+  }, [session, setIsAdmin])
 
   return (
     <Navbar bg="dark" variant="dark" expand="lg" className="mb-4">
@@ -22,7 +34,7 @@ export default function Navigation() {
                 <Link href="/dashboard" passHref legacyBehavior>
                   <Nav.Link>Dashboard</Nav.Link>
                 </Link>
-                {session.user?.role === 'ADMIN' && (
+                {session.user?.role === 'ADMIN' && adminMode && (
                   <Link href="/users" passHref legacyBehavior>
                     <Nav.Link>Users</Nav.Link>
                   </Link>
@@ -40,6 +52,17 @@ export default function Navigation() {
               </Link>
             )}
           </Nav>
+          {session?.user?.role === 'ADMIN' && (
+            <Nav className="ms-2">
+              <Button
+                variant={adminMode ? 'warning' : 'outline-warning'}
+                size="sm"
+                onClick={toggleAdminMode}
+              >
+                {adminMode ? 'Admin Mode' : 'Standard Mode'}
+              </Button>
+            </Nav>
+          )}
           <Nav className="ms-3">
             {isLoading ? (
               <Nav.Link disabled>Loading...</Nav.Link>

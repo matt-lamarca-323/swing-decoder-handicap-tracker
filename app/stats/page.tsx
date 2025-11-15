@@ -5,6 +5,7 @@ import { Container, Card, Row, Col, Form, Button, Spinner, Alert, Badge } from '
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAdminMode } from '@/contexts/AdminModeContext'
 
 interface Stats {
   totalRounds: number
@@ -28,12 +29,11 @@ interface Stats {
 export default function StatsPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { adminMode, isAdmin } = useAdminMode()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [courses, setCourses] = useState<string[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [adminMode, setAdminMode] = useState(false)
 
   // Filter state
   const [filter, setFilter] = useState('alltime')
@@ -93,7 +93,6 @@ export default function StatsPage() {
 
       const data = await response.json()
       setStats(data.stats)
-      setIsAdmin(data.isAdmin)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -107,10 +106,6 @@ export default function StatsPage() {
 
   const handleApplyFilter = () => {
     fetchStats()
-  }
-
-  const handleAdminModeToggle = () => {
-    setAdminMode(!adminMode)
   }
 
   // Refetch when admin mode changes
@@ -133,20 +128,10 @@ export default function StatsPage() {
   return (
     <Container className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>Golf Statistics</h1>
-        <div className="d-flex gap-2">
-          {isAdmin && (
-            <Button
-              variant={adminMode ? 'warning' : 'outline-warning'}
-              onClick={handleAdminModeToggle}
-            >
-              {adminMode ? 'Admin Mode (All Users)' : 'My Stats Only'}
-            </Button>
-          )}
-          <Link href="/rounds" className="btn btn-secondary">
-            Back to Rounds
-          </Link>
-        </div>
+        <h1>Golf Statistics {adminMode && isAdmin && <Badge bg="warning" text="dark">Admin Mode - All Users</Badge>}</h1>
+        <Link href="/rounds" className="btn btn-secondary">
+          Back to Rounds
+        </Link>
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
