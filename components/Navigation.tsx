@@ -30,6 +30,9 @@ export default function Navigation() {
                 <Link href="/rounds" passHref legacyBehavior>
                   <Nav.Link>Rounds</Nav.Link>
                 </Link>
+                <Link href="/stats" passHref legacyBehavior>
+                  <Nav.Link>Stats</Nav.Link>
+                </Link>
               </>
             ) : (
               <Link href="/" passHref legacyBehavior>
