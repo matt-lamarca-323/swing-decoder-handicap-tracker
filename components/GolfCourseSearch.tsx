@@ -80,13 +80,22 @@ export default function GolfCourseSearch({ onCourseSelect, disabled = false, ini
       }
 
       const courseDetails: GolfCourseDetails = await response.json()
+
+      // Debug: Log the course details to see the structure
+      console.log('Course Details:', courseDetails)
+      console.log('Tees:', courseDetails.tees)
+      console.log('Male Tees:', courseDetails.tees?.male)
+      console.log('Female Tees:', courseDetails.tees?.female)
+
       setSelectedCourse(courseDetails)
       setSearchQuery(`${courseDetails.club_name} - ${courseDetails.course_name}`)
 
       // Auto-select first tee if available
-      const availableTees = courseDetails.tees[selectedGender]
+      const availableTees = courseDetails.tees?.[selectedGender]
       if (availableTees && availableTees.length > 0) {
         setSelectedTee(availableTees[0])
+      } else {
+        setError(`No ${selectedGender} tees available for this course. Try switching gender or select a different course.`)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load course details')
@@ -97,9 +106,6 @@ export default function GolfCourseSearch({ onCourseSelect, disabled = false, ini
 
   const handleTeeSelect = (tee: GolfCourseTee) => {
     setSelectedTee(tee)
-    if (selectedCourse) {
-      onCourseSelect(selectedCourse, tee)
-    }
   }
 
   const handleGenderChange = (gender: 'male' | 'female') => {
@@ -108,7 +114,7 @@ export default function GolfCourseSearch({ onCourseSelect, disabled = false, ini
 
     // Auto-select first tee for new gender
     if (selectedCourse) {
-      const availableTees = selectedCourse.tees[gender]
+      const availableTees = selectedCourse.tees?.[gender]
       if (availableTees && availableTees.length > 0) {
         setSelectedTee(availableTees[0])
       }
@@ -120,7 +126,8 @@ export default function GolfCourseSearch({ onCourseSelect, disabled = false, ini
     if (selectedCourse && selectedTee) {
       onCourseSelect(selectedCourse, selectedTee)
     }
-  }, [selectedTee, selectedCourse, onCourseSelect])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTee, selectedCourse])
 
   return (
     <div>
@@ -172,7 +179,14 @@ export default function GolfCourseSearch({ onCourseSelect, disabled = false, ini
         )}
       </Form.Group>
 
-      {error && <Alert variant="danger">{error}</Alert>}
+      {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+
+      {/* Debug Info */}
+      {selectedCourse && !selectedCourse.tees && (
+        <Alert variant="warning" className="mb-3">
+          Course data loaded but no tee information available. The API response may not include tees.
+        </Alert>
+      )}
 
       {/* Gender Selection */}
       {selectedCourse && (
@@ -204,19 +218,19 @@ export default function GolfCourseSearch({ onCourseSelect, disabled = false, ini
       )}
 
       {/* Tee Selection */}
-      {selectedCourse && selectedCourse.tees[selectedGender] && selectedCourse.tees[selectedGender].length > 0 && (
+      {selectedCourse && selectedCourse.tees?.[selectedGender] && selectedCourse.tees[selectedGender].length > 0 && (
         <Form.Group className="mb-3">
           <Form.Label>Select Tee</Form.Label>
           <Form.Select
             value={selectedTee?.tee_name || ''}
             onChange={(e) => {
-              const tee = selectedCourse.tees[selectedGender].find(t => t.tee_name === e.target.value)
+              const tee = selectedCourse.tees?.[selectedGender]?.find(t => t.tee_name === e.target.value)
               if (tee) handleTeeSelect(tee)
             }}
             disabled={disabled}
           >
             <option value="">Choose tee...</option>
-            {selectedCourse.tees[selectedGender].map((tee) => (
+            {selectedCourse.tees[selectedGender]?.map((tee) => (
               <option key={tee.tee_name} value={tee.tee_name}>
                 {tee.tee_name} - {tee.total_yards} yards (Rating: {tee.course_rating}, Slope: {tee.slope_rating})
               </option>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const GOLF_COURSE_API_BASE = 'https://api.golfcourseapi.com/v1'
-const API_KEY = process.env.GOLF_COURSE_API_KEY
 
 /**
  * Search for golf courses
@@ -9,6 +8,9 @@ const API_KEY = process.env.GOLF_COURSE_API_KEY
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get API key from environment
+    const API_KEY = process.env.GOLF_COURSE_API_KEY
+
     // Check if API key is configured
     if (!API_KEY) {
       return NextResponse.json(

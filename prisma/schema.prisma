@@ -51,6 +51,7 @@ model Round {
   upAndDownAttempts     Int?     // Total up and down attempts
   girPutts              Int?     // Putts on greens hit in regulation
   nonGirPutts           Int?     // Putts when green was missed
+  underGIR              Int?     // Number of under GIR achievements (par or better after missing green)
   holeByHoleData        Json?    // Detailed hole-by-hole scores and stats
 
   // Handicap calculation

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const GOLF_COURSE_API_BASE = 'https://api.golfcourseapi.com/v1'
-const API_KEY = process.env.GOLF_COURSE_API_KEY
 
 /**
  * Get golf course details by ID
@@ -12,6 +11,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Get API key from environment
+    const API_KEY = process.env.GOLF_COURSE_API_KEY
+
     // Check if API key is configured
     if (!API_KEY) {
       return NextResponse.json(
@@ -50,7 +52,10 @@ export async function GET(
     }
 
     const data = await response.json()
-    return NextResponse.json(data)
+
+    // The API returns { course: {...} }, so unwrap it
+    const courseData = data.course || data
+    return NextResponse.json(courseData)
   } catch (error) {
     console.error('Error fetching course details:', error)
     return NextResponse.json(

@@ -18,6 +18,18 @@ import {
 import GolfCourseSearch from '@/components/GolfCourseSearch'
 import type { GolfCourseDetails, GolfCourseTee } from '@/types/golf-course'
 
+// Helper function to determine score shape CSS class
+function getScoreShapeClass(par: number, score: number): string {
+  if (!score || score <= 0) return ''
+  const diff = score - par
+
+  if (diff <= -2) return 'score-eagle'
+  if (diff === -1) return 'score-birdie'
+  if (diff === 0) return 'score-par'
+  if (diff === 1) return 'score-bogey'
+  return 'score-double-bogey'
+}
+
 export default function NewRoundPage() {
   const router = useRouter()
   const { data: session } = useSession()
@@ -85,9 +97,18 @@ export default function NewRoundPage() {
     }
     setError(null)
     setRoundInfoSubmitted(true)
-    // Regenerate hole data if holes changed
+
+    // Only generate default hole data if it hasn't been populated yet
+    // (i.e., user didn't select a course from the API)
+    // Check if the first hole has yardage data - if it does, course was selected from API
     if (entryMode === 'detailed') {
-      setHoleData(generateDefaultHoles(holes))
+      const hasYardageData = holeData.length > 0 && holeData[0].yardage && holeData[0].yardage > 0
+      if (!hasYardageData) {
+        console.log('No yardage data, generating default holes')
+        setHoleData(generateDefaultHoles(holes))
+      } else {
+        console.log('Yardage data exists, keeping current hole data')
+      }
     }
   }
 
@@ -96,6 +117,8 @@ export default function NewRoundPage() {
   }
 
   const handleCourseSelect = (course: GolfCourseDetails, tee: GolfCourseTee) => {
+    console.log('handleCourseSelect called', { course, tee })
+
     // Set course name
     setCourseName(`${course.club_name} - ${course.course_name}`)
 
@@ -103,22 +126,23 @@ export default function NewRoundPage() {
     setCourseRating(tee.course_rating)
     setSlopeRating(tee.slope_rating)
 
-    // Set number of holes
+    // Set number of holes FIRST
     setHoles(tee.number_of_holes)
 
     // Auto-populate hole data with par, yardage, and handicap
-    if (entryMode === 'detailed') {
-      const newHoleData = tee.holes.map((hole, index) => ({
-        holeNumber: index + 1,
-        par: hole.par,
-        score: 0,
-        putts: 0,
-        fairwayHit: undefined,
-        yardage: hole.yardage,
-        handicap: hole.handicap
-      }))
-      setHoleData(newHoleData)
-    }
+    // Always update hole data when course is selected, regardless of mode
+    const newHoleData = tee.holes.map((hole, index) => ({
+      holeNumber: index + 1,
+      par: hole.par,
+      score: 0,
+      putts: 0,
+      fairwayHit: undefined,
+      yardage: hole.yardage,
+      handicap: hole.handicap
+    }))
+
+    console.log('Setting hole data:', newHoleData)
+    setHoleData(newHoleData)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,6 +208,7 @@ export default function NewRoundPage() {
         roundData.upAndDownAttempts = stats.upAndDownAttempts
         roundData.girPutts = stats.girPutts
         roundData.nonGirPutts = stats.nonGirPutts
+        roundData.underGIR = stats.underGIR
         roundData.holeByHoleData = holeData
       }
 
@@ -419,17 +444,9 @@ export default function NewRoundPage() {
                         {/* Par Row */}
                         <tr>
                           <td className="fw-bold bg-light">Par</td>
-                          {holeData.slice(0, Math.min(9, holes)).map((hole, index) => (
-                            <td key={`par-${hole.holeNumber}`}>
-                              <Form.Control
-                                type="number"
-                                size="sm"
-                                min={3}
-                                max={6}
-                                value={hole.par}
-                                onChange={(e) => handleHoleChange(index, 'par', Number(e.target.value))}
-                                className="text-center"
-                              />
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => (
+                            <td key={`par-${hole.holeNumber}`} className="text-center fw-bold">
+                              {hole.par}
                             </td>
                           ))}
                           <td className="fw-bold bg-warning">
@@ -437,20 +454,60 @@ export default function NewRoundPage() {
                           </td>
                         </tr>
 
+                        {/* Yardage Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Yardage</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => (
+                            <td key={`yardage-${hole.holeNumber}`} className="text-center text-muted">
+                              {hole.yardage || '-'}
+                            </td>
+                          ))}
+                          <td className="fw-bold bg-warning">
+                            {holeData.slice(0, Math.min(9, holes)).reduce((sum, h) => sum + (h.yardage || 0), 0) || '-'}
+                          </td>
+                        </tr>
+
+                        {/* Handicap Row */}
+                        <tr>
+                          <td className="fw-bold bg-light">Handicap</td>
+                          {holeData.slice(0, Math.min(9, holes)).map((hole) => (
+                            <td key={`handicap-${hole.holeNumber}`} className="text-center">
+                              {hole.handicap ? (
+                                <Badge bg="secondary" className="px-2">{hole.handicap}</Badge>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                          ))}
+                          <td className="fw-bold bg-warning text-muted">-</td>
+                        </tr>
+
                         {/* Score Row */}
                         <tr>
                           <td className="fw-bold bg-light">Score *</td>
                           {holeData.slice(0, Math.min(9, holes)).map((hole, index) => (
-                            <td key={`score-${hole.holeNumber}`}>
-                              <Form.Control
-                                type="number"
-                                size="sm"
-                                min={1}
-                                value={hole.score || ''}
-                                onChange={(e) => handleHoleChange(index, 'score', Number(e.target.value))}
-                                placeholder="-"
-                                className="text-center"
-                              />
+                            <td key={`score-${hole.holeNumber}`} className="text-center">
+                              <div className={`d-inline-block ${getScoreShapeClass(hole.par, hole.score || 0)}`}>
+                                <Form.Control
+                                  type="number"
+                                  size="sm"
+                                  min={1}
+                                  value={hole.score || ''}
+                                  onChange={(e) => handleHoleChange(index, 'score', Number(e.target.value))}
+                                  placeholder="-"
+                                  className="text-center border-0 bg-transparent score-input"
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    padding: '6px 0',
+                                    margin: '0',
+                                    lineHeight: '20px',
+                                    color: 'inherit',
+                                    fontWeight: 'inherit',
+                                    fontSize: '14px'
+                                  }}
+                                />
+                              </div>
                             </td>
                           ))}
                           <td className="fw-bold bg-warning">
@@ -565,10 +622,7 @@ export default function NewRoundPage() {
                                 const hasValidData = h.score > 0 && h.putts >= 0
                                 return hasValidData && calculateUnderGIR(h.par, h.score, h.putts)
                               }).length
-                              const underGIRTotal = front9.filter(h => h.par > 3).length
-                              if (underGIRTotal === 0) return '-'
-                              const underGIRPct = ((underGIRHit / underGIRTotal) * 100).toFixed(0)
-                              return `${underGIRHit}/${underGIRTotal} (${underGIRPct}%)`
+                              return underGIRHit || '-'
                             })()}
                           </td>
                         </tr>
@@ -643,22 +697,11 @@ export default function NewRoundPage() {
                           {/* Par Row */}
                           <tr>
                             <td className="fw-bold bg-light">Par</td>
-                            {holeData.slice(9, 18).map((hole, index) => {
-                              const actualIndex = index + 9
-                              return (
-                                <td key={`par-${hole.holeNumber}`}>
-                                  <Form.Control
-                                    type="number"
-                                    size="sm"
-                                    min={3}
-                                    max={6}
-                                    value={hole.par}
-                                    onChange={(e) => handleHoleChange(actualIndex, 'par', Number(e.target.value))}
-                                    className="text-center"
-                                  />
-                                </td>
-                              )
-                            })}
+                            {holeData.slice(9, 18).map((hole) => (
+                              <td key={`par-${hole.holeNumber}`} className="text-center fw-bold">
+                                {hole.par}
+                              </td>
+                            ))}
                             <td className="fw-bold bg-warning">
                               {holeData.slice(9, 18).reduce((sum, h) => sum + h.par, 0)}
                             </td>
@@ -667,22 +710,66 @@ export default function NewRoundPage() {
                             </td>
                           </tr>
 
+                          {/* Yardage Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Yardage</td>
+                            {holeData.slice(9, 18).map((hole) => (
+                              <td key={`yardage-${hole.holeNumber}`} className="text-center text-muted">
+                                {hole.yardage || '-'}
+                              </td>
+                            ))}
+                            <td className="fw-bold bg-warning">
+                              {holeData.slice(9, 18).reduce((sum, h) => sum + (h.yardage || 0), 0) || '-'}
+                            </td>
+                            <td className="fw-bold bg-success">
+                              {holeData.slice(0, 18).reduce((sum, h) => sum + (h.yardage || 0), 0) || '-'}
+                            </td>
+                          </tr>
+
+                          {/* Handicap Row */}
+                          <tr>
+                            <td className="fw-bold bg-light">Handicap</td>
+                            {holeData.slice(9, 18).map((hole) => (
+                              <td key={`handicap-${hole.holeNumber}`} className="text-center">
+                                {hole.handicap ? (
+                                  <Badge bg="secondary" className="px-2">{hole.handicap}</Badge>
+                                ) : (
+                                  <span className="text-muted">-</span>
+                                )}
+                              </td>
+                            ))}
+                            <td className="fw-bold bg-warning text-muted">-</td>
+                            <td className="fw-bold bg-success text-muted">-</td>
+                          </tr>
+
                           {/* Score Row */}
                           <tr>
                             <td className="fw-bold bg-light">Score *</td>
                             {holeData.slice(9, 18).map((hole, index) => {
                               const actualIndex = index + 9
                               return (
-                                <td key={`score-${hole.holeNumber}`}>
-                                  <Form.Control
-                                    type="number"
-                                    size="sm"
-                                    min={1}
-                                    value={hole.score || ''}
-                                    onChange={(e) => handleHoleChange(actualIndex, 'score', Number(e.target.value))}
-                                    placeholder="-"
-                                    className="text-center"
-                                  />
+                                <td key={`score-${hole.holeNumber}`} className="text-center">
+                                  <div className={`d-inline-block ${getScoreShapeClass(hole.par, hole.score || 0)}`}>
+                                    <Form.Control
+                                      type="number"
+                                      size="sm"
+                                      min={1}
+                                      value={hole.score || ''}
+                                      onChange={(e) => handleHoleChange(actualIndex, 'score', Number(e.target.value))}
+                                      placeholder="-"
+                                      className="text-center border-0 bg-transparent score-input"
+                                      style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        padding: '6px 0',
+                                        margin: '0',
+                                        lineHeight: '20px',
+                                        color: 'inherit',
+                                        fontWeight: 'inherit',
+                                        fontSize: '14px'
+                                      }}
+                                    />
+                                  </div>
                                 </td>
                               )
                             })}
@@ -832,10 +919,7 @@ export default function NewRoundPage() {
                                   const hasValidData = h.score > 0 && h.putts >= 0
                                   return hasValidData && calculateUnderGIR(h.par, h.score, h.putts)
                                 }).length
-                                const underGIRTotal = back9.filter(h => h.par > 3).length
-                                if (underGIRTotal === 0) return '-'
-                                const underGIRPct = ((underGIRHit / underGIRTotal) * 100).toFixed(0)
-                                return `${underGIRHit}/${underGIRTotal} (${underGIRPct}%)`
+                                return underGIRHit || '-'
                               })()}
                             </td>
                             <td className="fw-bold bg-success">
@@ -845,10 +929,7 @@ export default function NewRoundPage() {
                                   const hasValidData = h.score > 0 && h.putts >= 0
                                   return hasValidData && calculateUnderGIR(h.par, h.score, h.putts)
                                 }).length
-                                const underGIRTotal = allHoles.filter(h => h.par > 3).length
-                                if (underGIRTotal === 0) return '-'
-                                const underGIRPct = ((underGIRHit / underGIRTotal) * 100).toFixed(0)
-                                return `${underGIRHit}/${underGIRTotal} (${underGIRPct}%)`
+                                return underGIRHit || '-'
                               })()}
                             </td>
                           </tr>

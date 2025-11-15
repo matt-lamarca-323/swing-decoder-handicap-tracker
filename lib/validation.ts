@@ -31,6 +31,7 @@ export const roundSchema = z.object({
   upAndDownAttempts: z.number().int().min(0).optional().nullable(),
   girPutts: z.number().int().min(0).optional().nullable(),
   nonGirPutts: z.number().int().min(0).optional().nullable(),
+  underGIR: z.number().int().min(0).max(18).optional().nullable(),
   holeByHoleData: z.any().optional().nullable(), // JSON data
   handicapDifferential: z.number().optional().nullable(), // Calculated automatically
 })
