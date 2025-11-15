@@ -57,20 +57,10 @@ export function calculateHandicapIndex(differentials: number[]): number | null {
 
   let index: number
 
-  if (count >= 1 && count <= 3) {
-    // Use lowest differential minus 2.0
-    index = sorted[0] - 2.0
-  } else if (count >= 4 && count <= 5) {
-    // Use lowest differential minus 1.0
-    index = sorted[0] - 1.0
-  } else if (count === 6) {
-    // Average of lowest 2 differentials minus 1.0
-    const avg = (sorted[0] + sorted[1]) / 2
-    index = avg - 1.0
-  } else if (count >= 7 && count <= 8) {
-    // Average of lowest 2 differentials
-    index = (sorted[0] + sorted[1]) / 2
-  } else if (count >= 9 && count <= 11) {
+  if (count >= 1 && count <= 9) {
+    // Use average of ALL differentials for first 9 rounds
+    index = sorted.reduce((sum, d) => sum + d, 0) / count
+  } else if (count >= 10 && count <= 11) {
     // Average of lowest 3 differentials
     index = (sorted[0] + sorted[1] + sorted[2]) / 3
   } else if (count >= 12 && count <= 14) {
@@ -125,9 +115,8 @@ export function calculateHandicapIndexFromRounds(
  * @returns Number of differentials used in calculation
  */
 export function getNumberOfDifferentialsUsed(totalRounds: number): number {
-  if (totalRounds >= 1 && totalRounds <= 3) return 1
-  if (totalRounds >= 4 && totalRounds <= 8) return 2
-  if (totalRounds >= 9 && totalRounds <= 11) return 3
+  if (totalRounds >= 1 && totalRounds <= 9) return totalRounds // Use all rounds for first 9
+  if (totalRounds >= 10 && totalRounds <= 11) return 3
   if (totalRounds >= 12 && totalRounds <= 14) return 4
   if (totalRounds >= 15 && totalRounds <= 16) return 5
   if (totalRounds >= 17 && totalRounds <= 18) return 6

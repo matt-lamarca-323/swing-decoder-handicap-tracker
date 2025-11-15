@@ -496,6 +496,7 @@ export default function NewRoundPage() {
                                   onChange={(e) => handleHoleChange(index, 'score', Number(e.target.value))}
                                   placeholder="-"
                                   className="text-center border-0 bg-transparent score-input"
+                                  tabIndex={(index * 3) + 1}
                                   style={{
                                     width: '32px',
                                     height: '32px',
@@ -528,6 +529,7 @@ export default function NewRoundPage() {
                                 onChange={(e) => handleHoleChange(index, 'putts', Number(e.target.value))}
                                 placeholder="-"
                                 className="text-center"
+                                tabIndex={(index * 3) + 2}
                               />
                             </td>
                           ))}
@@ -547,6 +549,7 @@ export default function NewRoundPage() {
                                   value={hole.fairwayHit === undefined ? '' : hole.fairwayHit ? 'true' : 'false'}
                                   onChange={(e) => handleHoleChange(index, 'fairwayHit', e.target.value === '' ? undefined : e.target.value === 'true')}
                                   className="text-center"
+                                  tabIndex={(index * 3) + 3}
                                 >
                                   <option value="">-</option>
                                   <option value="true">✓</option>
@@ -758,6 +761,7 @@ export default function NewRoundPage() {
                                       onChange={(e) => handleHoleChange(actualIndex, 'score', Number(e.target.value))}
                                       placeholder="-"
                                       className="text-center border-0 bg-transparent score-input"
+                                      tabIndex={(actualIndex * 3) + 1}
                                       style={{
                                         width: '32px',
                                         height: '32px',
@@ -796,6 +800,7 @@ export default function NewRoundPage() {
                                     onChange={(e) => handleHoleChange(actualIndex, 'putts', Number(e.target.value))}
                                     placeholder="-"
                                     className="text-center"
+                                    tabIndex={(actualIndex * 3) + 2}
                                   />
                                 </td>
                               )
@@ -821,6 +826,7 @@ export default function NewRoundPage() {
                                       value={hole.fairwayHit === undefined ? '' : hole.fairwayHit ? 'true' : 'false'}
                                       onChange={(e) => handleHoleChange(actualIndex, 'fairwayHit', e.target.value === '' ? undefined : e.target.value === 'true')}
                                       className="text-center"
+                                      tabIndex={(actualIndex * 3) + 3}
                                     >
                                       <option value="">-</option>
                                       <option value="true">✓</option>
