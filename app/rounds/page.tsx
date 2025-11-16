@@ -5,6 +5,7 @@ import { Container, Table, Button, Alert, Spinner, Badge } from 'react-bootstrap
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
+import { useAdminMode } from '@/contexts/AdminModeContext'
 
 interface Round {
   id: number
@@ -30,15 +31,17 @@ export default function RoundsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { data: session } = useSession()
+  const { adminMode, isAdmin } = useAdminMode()
 
   useEffect(() => {
     fetchRounds()
-  }, [])
+  }, [adminMode])
 
   const fetchRounds = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/rounds')
+      const url = adminMode ? '/api/rounds?adminMode=true' : '/api/rounds'
+      const response = await fetch(url)
       if (!response.ok) throw new Error('Failed to fetch rounds')
       const data = await response.json()
       setRounds(data)
@@ -88,7 +91,10 @@ export default function RoundsPage() {
   return (
     <Container className="py-5">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>{session?.user?.role === 'ADMIN' ? 'All Golf Rounds' : 'My Golf Rounds'}</h1>
+        <h1>
+          {adminMode && isAdmin ? 'All Golf Rounds' : 'My Golf Rounds'}{' '}
+          {adminMode && isAdmin && <Badge bg="warning" text="dark">Admin Mode - All Users</Badge>}
+        </h1>
         <Link href="/rounds/new" passHref legacyBehavior>
           <Button variant="primary">Add New Round</Button>
         </Link>

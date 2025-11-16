@@ -8,6 +8,9 @@ import { AdminModeProvider } from '@/contexts/AdminModeContext'
 export const metadata: Metadata = {
   title: 'Swing Decoder Handicap Tracker',
   description: 'Track your golf handicap and analyze your swing',
+  icons: {
+    icon: '/favicon.png',
+  },
 }
 
 export default function RootLayout({

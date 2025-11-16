@@ -24,7 +24,14 @@ export default function Navigation() {
     <Navbar bg="dark" variant="dark" expand="lg" className="mb-4">
       <Container>
         <Link href="/" passHref legacyBehavior>
-          <Navbar.Brand>Swing Decoder Handicap Tracker</Navbar.Brand>
+          <Navbar.Brand>
+            <Image
+              src="/logo-thin.png"
+              alt="Swing Decoder Handicap Tracker"
+              height={40}
+              className="d-inline-block"
+            />
+          </Navbar.Brand>
         </Link>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">

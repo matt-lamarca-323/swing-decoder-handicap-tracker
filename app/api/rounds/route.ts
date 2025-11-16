@@ -6,21 +6,22 @@ import { getCurrentUser, isAdmin, createAuthErrorResponse } from '@/lib/auth-uti
 import { Role } from '@prisma/client'
 import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
 
-// GET /api/rounds - Get rounds (own rounds or all if admin)
+// GET /api/rounds - Get rounds (own rounds or all if admin in admin mode)
 export async function GET(request: NextRequest) {
   try {
     // Require authentication
     const currentUser = await getCurrentUser()
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    const adminMode = searchParams.get('adminMode') === 'true'
 
     let whereClause = {}
 
-    // If user is admin, they can see all rounds or filter by userId
-    if (currentUser.role === Role.ADMIN) {
+    // If user is admin AND in admin mode, they can see all rounds or filter by userId
+    if (currentUser.role === Role.ADMIN && adminMode) {
       whereClause = userId ? { userId: parseInt(userId) } : {}
     } else {
-      // Regular users can only see their own rounds
+      // Regular users or admins in standard mode can only see their own rounds
       whereClause = { userId: parseInt(currentUser.id) }
     }
 
