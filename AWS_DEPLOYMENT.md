@@ -628,3 +628,5 @@ You've successfully deployed the Swing Decoder Handicap Tracker to AWS! Your app
 - Scale as needed based on usage
 
 Happy tracking! ⛳
+
+Test connection
