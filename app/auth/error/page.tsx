@@ -1,10 +1,11 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Container, Card, Button, Alert } from 'react-bootstrap'
+import { Container, Card, Button, Alert, Spinner } from 'react-bootstrap'
 import Link from 'next/link'
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
@@ -58,5 +59,19 @@ export default function AuthErrorPage() {
         </Card.Body>
       </Card>
     </Container>
+  )
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <Container className="d-flex align-items-center justify-content-center" style={{ minHeight: '80vh' }}>
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </Spinner>
+      </Container>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   )
 }

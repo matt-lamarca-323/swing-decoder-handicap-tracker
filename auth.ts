@@ -8,7 +8,7 @@ import { verifyPassword } from "@/lib/password"
 import { logger } from "@/lib/logger"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as any, // Type assertion to resolve @auth/core version mismatch
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
@@ -64,7 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           const duration = logger.endTimer(startTime)
-          logger.authEvent('signin', user.id.toString(), user.email, 'credentials', {
+          logger.authEvent('signin', user.id.toString(), user.email ?? undefined, 'credentials', {
             performance: { duration_ms: duration },
             rememberMe: credentials.rememberMe === "true"
           })
@@ -129,7 +129,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // 2. Link the OAuth account to the user
         // 3. Update existing user info if user already exists
         const duration = logger.endTimer(startTime)
-        logger.authEvent('signin', user.id, user.email, account?.provider, {
+        logger.authEvent('signin', user.id, user.email ?? undefined, account?.provider, {
           performance: { duration_ms: duration },
           profile: profile ? { name: profile.name } : undefined
         })
@@ -137,7 +137,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true
       } catch (error) {
         const duration = logger.endTimer(startTime)
-        logger.authError('signin_callback', error as Error, user.email, account?.provider)
+        logger.authError('signin_callback', error as Error, user.email ?? undefined, account?.provider)
         return false
       }
     },
@@ -265,13 +265,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
 
           const duration = logger.endTimer(startTime)
-          logger.authEvent('signup', user.id, user.email, undefined, {
+          logger.authEvent('signup', user.id, user.email ?? undefined, undefined, {
             auth: { role: 'ADMIN', firstUser: true },
             performance: { duration_ms: duration }
           })
         } else {
           const duration = logger.endTimer(startTime)
-          logger.authEvent('signup', user.id, user.email, undefined, {
+          logger.authEvent('signup', user.id, user.email ?? undefined, undefined, {
             auth: { role: 'USER' },
             performance: { duration_ms: duration }
           })
