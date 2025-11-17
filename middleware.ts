@@ -21,8 +21,11 @@ export default auth((req) => {
   // Check if it's an auth-related route
   const isAuthRoute = pathname.startsWith('/api/auth')
 
-  // Allow access to public routes and auth routes
-  if (isPublicRoute || isAuthRoute) {
+  // Check if it's a test/diagnostic route (public for debugging)
+  const isTestRoute = pathname.startsWith('/api/test-')
+
+  // Allow access to public routes, auth routes, and test routes
+  if (isPublicRoute || isAuthRoute || isTestRoute) {
     return NextResponse.next()
   }
 
