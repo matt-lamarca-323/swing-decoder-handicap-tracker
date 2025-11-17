@@ -20,9 +20,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
-          redirect_uri: process.env.NODE_ENV === 'production'
-            ? `${process.env.AUTH_URL || process.env.NEXTAUTH_URL}/api/auth/callback/google`
-            : undefined
+          ...(process.env.AUTH_URL && {
+            redirect_uri: `${process.env.AUTH_URL}/api/auth/callback/google`
+          })
         }
       }
     }),
