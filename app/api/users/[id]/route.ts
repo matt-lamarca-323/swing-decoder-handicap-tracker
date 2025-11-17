@@ -8,10 +8,11 @@ import { logger } from '@/lib/logger'
 // GET /api/users/[id] - Get a single user (own profile or admin)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = logger.startTimer()
-  const userId = parseInt(params.id)
+  const { id } = await params
+  const userId = parseInt(id)
 
   try {
     const currentUser = await getCurrentUser()
@@ -60,10 +61,11 @@ export async function GET(
 // PUT /api/users/[id] - Update a user (own profile or admin)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = logger.startTimer()
-  const userId = parseInt(params.id)
+  const { id } = await params
+  const userId = parseInt(id)
 
   try {
     const currentUser = await getCurrentUser()
@@ -127,10 +129,11 @@ export async function PUT(
 // DELETE /api/users/[id] - Delete a user (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = logger.startTimer()
-  const userId = parseInt(params.id)
+  const { id } = await params
+  const userId = parseInt(id)
 
   try {
     // Only admins can delete users

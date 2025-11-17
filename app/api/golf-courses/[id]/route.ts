@@ -8,7 +8,7 @@ const GOLF_COURSE_API_BASE = 'https://api.golfcourseapi.com/v1'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get API key from environment
@@ -22,7 +22,7 @@ export async function GET(
       )
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json(

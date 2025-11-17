@@ -9,14 +9,15 @@ import { calculateHandicapDifferential } from '@/lib/handicap-calculator'
 // GET /api/rounds/[id] - Get a single round (own round or admin)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Require authentication
     const currentUser = await getCurrentUser()
+    const { id } = await params
 
     const round = await prisma.round.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       include: {
         user: {
           select: {
@@ -56,15 +57,16 @@ export async function GET(
 // PUT /api/rounds/[id] - Update a round (own round or admin)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Require authentication
     const currentUser = await getCurrentUser()
+    const { id } = await params
 
     // First, get the existing round to check ownership
     const existingRound = await prisma.round.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
     })
 
     if (!existingRound) {
@@ -122,7 +124,7 @@ export async function PUT(
 
     // Update round
     const round = await prisma.round.update({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       data: {
         ...validatedData,
         datePlayed: validatedData.datePlayed
@@ -168,15 +170,16 @@ export async function PUT(
 // DELETE /api/rounds/[id] - Delete a round (own round or admin)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Require authentication
     const currentUser = await getCurrentUser()
+    const { id } = await params
 
     // First, get the existing round to check ownership
     const existingRound = await prisma.round.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
     })
 
     if (!existingRound) {
@@ -190,7 +193,7 @@ export async function DELETE(
     await requireResourceAccess(existingRound.userId)
 
     await prisma.round.delete({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
     })
 
     return NextResponse.json({ message: 'Round deleted successfully' })
