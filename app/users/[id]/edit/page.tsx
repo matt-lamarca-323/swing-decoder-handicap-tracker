@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { Container, Form, Button, Alert, Card, Spinner } from 'react-bootstrap'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -13,7 +13,8 @@ interface User {
   rounds: number
 }
 
-export default function EditUserPage({ params }: { params: { id: string } }) {
+export default function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const router = useRouter()
   const [formData, setFormData] = useState({
     name: '',
@@ -31,7 +32,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch(`/api/users/${params.id}`)
+      const response = await fetch(`/api/users/${id}`)
       if (!response.ok) throw new Error('Failed to fetch user')
       const user: User = await response.json()
 
@@ -71,7 +72,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
         rounds: parseInt(formData.rounds) || 0,
       }
 
-      const response = await fetch(`/api/users/${params.id}`, {
+      const response = await fetch(`/api/users/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
