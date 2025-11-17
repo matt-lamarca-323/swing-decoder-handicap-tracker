@@ -9,6 +9,7 @@ import { logger } from "@/lib/logger"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true, // Required for production deployments (AWS Amplify, Vercel, etc.)
+  basePath: "/api/auth", // Explicitly set the auth API path
   adapter: PrismaAdapter(prisma) as any, // Type assertion to resolve @auth/core version mismatch
   providers: [
     Google({
@@ -18,7 +19,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         params: {
           prompt: "consent",
           access_type: "offline",
-          response_type: "code"
+          response_type: "code",
+          redirect_uri: process.env.NODE_ENV === 'production'
+            ? `${process.env.AUTH_URL || process.env.NEXTAUTH_URL}/api/auth/callback/google`
+            : undefined
         }
       }
     }),
