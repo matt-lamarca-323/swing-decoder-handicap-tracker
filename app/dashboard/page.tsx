@@ -99,7 +99,7 @@ export default function DashboardPage() {
     <Container className="py-5">
       <div className="mb-4">
         <h1>Welcome back, {session.user?.name}!</h1>
-        <p className="text-muted">Here's your golf performance summary</p>
+        <p className="text-muted">Here&apos;s your golf performance summary</p>
       </div>
 
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}

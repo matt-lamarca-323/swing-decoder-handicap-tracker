@@ -159,7 +159,7 @@ export default function SignInPage() {
 
           {/* Sign Up Link */}
           <div className="text-center mt-4">
-            <span className="text-muted">Don't have an account? </span>
+            <span className="text-muted">Don&apos;t have an account? </span>
             <Link href="/auth/signup" className="text-decoration-none">
               Sign up
             </Link>

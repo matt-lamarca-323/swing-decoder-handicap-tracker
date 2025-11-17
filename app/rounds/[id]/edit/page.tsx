@@ -286,7 +286,7 @@ export default function EditRoundPage() {
 
       {hasDetailedData && (
         <Alert variant="info" className="mb-4">
-          This round has detailed hole-by-hole data. Switch to "Detailed" mode to edit individual holes.
+          This round has detailed hole-by-hole data. Switch to &quot;Detailed&quot; mode to edit individual holes.
         </Alert>
       )}
 
