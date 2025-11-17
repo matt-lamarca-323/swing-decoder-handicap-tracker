@@ -8,6 +8,7 @@ import { verifyPassword } from "@/lib/password"
 import { logger } from "@/lib/logger"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true, // Required for production deployments (AWS Amplify, Vercel, etc.)
   adapter: PrismaAdapter(prisma) as any, // Type assertion to resolve @auth/core version mismatch
   providers: [
     Google({
