@@ -9,6 +9,7 @@ export interface HoleData {
   score: number
   putts: number
   fairwayHit?: boolean // Optional: null for par 3s
+  yardage?: number // Optional: hole yardage/distance
 }
 
 export interface CalculatedStats {
