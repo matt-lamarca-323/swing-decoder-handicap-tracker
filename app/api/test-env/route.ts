@@ -8,6 +8,27 @@ export async function GET() {
     return `${value.substring(0, showChars)}...`
   }
 
+  // Parse DATABASE_URL to show connection details (without password)
+  const parseConnectionString = (url: string | undefined) => {
+    if (!url) return null
+
+    try {
+      const parsed = new URL(url)
+      return {
+        protocol: parsed.protocol.replace(':', ''),
+        host: parsed.hostname,
+        port: parsed.port || '5432',
+        database: parsed.pathname.replace('/', ''),
+        username: parsed.username,
+        queryParams: parsed.search || 'none',
+        passwordSet: !!parsed.password,
+        fullPreview: `${parsed.protocol}//${parsed.username}:***@${parsed.hostname}:${parsed.port || '5432'}${parsed.pathname}${parsed.search}`
+      }
+    } catch (e) {
+      return { error: 'Invalid URL format', raw: url.substring(0, 30) + '...' }
+    }
+  }
+
   // Get all environment variables
   const allEnvKeys = Object.keys(process.env).sort()
 
@@ -37,9 +58,13 @@ export async function GET() {
     requiredVarsTotal: Object.keys(requiredVars).length
   }
 
+  // Parse DATABASE_URL for detailed connection info
+  const databaseConnectionInfo = parseConnectionString(process.env.DATABASE_URL)
+
   return NextResponse.json({
     stats,
     requiredVariables: requiredVars,
+    databaseConnectionInfo,
     allEnvironmentVariables: allEnvPreview,
     timestamp: new Date().toISOString()
   }, {
