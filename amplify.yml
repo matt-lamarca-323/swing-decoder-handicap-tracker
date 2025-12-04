@@ -26,12 +26,20 @@ frontend:
         - npm run build
     postBuild:
       commands:
-        # Copy .env to standalone folder for runtime
+        # Debug - show .next structure
+        - echo "=== .next folder structure ==="
+        - ls -la .next/ || echo "No .next folder"
+        - ls -la .next/standalone/ 2>/dev/null || echo "No standalone folder"
+        # Copy .env to multiple locations
+        - cp .env .next/.env 2>/dev/null || true
         - cp .env .next/standalone/.env 2>/dev/null || true
-        - echo "=== .env copied to standalone ==="
+        - echo "=== .env files copied ==="
   artifacts:
-    baseDirectory: .next
+    baseDirectory: .
     files:
-      - '**/*'
+      - .next/**/*
+      - .env
+      - node_modules/.prisma/**/*
+      - node_modules/@prisma/**/*
   cache:
     paths: []
