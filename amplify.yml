@@ -6,6 +6,7 @@ frontend:
         - npm ci --include=dev
         - npx prisma generate
         # Write environment variables to .env.production for runtime access
+        - rm -f .env.production
         - echo "DATABASE_URL=$DATABASE_URL" >> .env.production
         - echo "AUTH_SECRET=$AUTH_SECRET" >> .env.production
         - echo "AUTH_URL=$AUTH_URL" >> .env.production
