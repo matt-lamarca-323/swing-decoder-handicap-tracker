@@ -5,20 +5,22 @@ frontend:
       commands:
         - npm ci --include=dev
         - npx prisma generate
-        # Write environment variables to .env.production for runtime access
-        - rm -f .env.production
-        - echo "DATABASE_URL=$DATABASE_URL" >> .env.production
-        - echo "AUTH_SECRET=$AUTH_SECRET" >> .env.production
-        - echo "AUTH_URL=$AUTH_URL" >> .env.production
-        - echo "AUTH_GOOGLE_ID=$AUTH_GOOGLE_ID" >> .env.production
-        - echo "AUTH_GOOGLE_SECRET=$AUTH_GOOGLE_SECRET" >> .env.production
-        - echo "GOLF_COURSE_API_KEY=$GOLF_COURSE_API_KEY" >> .env.production
-        - echo "NODE_ENV=production" >> .env.production
+        # Write environment variables to .env for Next.js build
+        - rm -f .env .env.production .env.local
+        - echo "DATABASE_URL=$DATABASE_URL" >> .env
+        - echo "AUTH_SECRET=$AUTH_SECRET" >> .env
+        - echo "AUTH_URL=$AUTH_URL" >> .env
+        - echo "AUTH_GOOGLE_ID=$AUTH_GOOGLE_ID" >> .env
+        - echo "AUTH_GOOGLE_SECRET=$AUTH_GOOGLE_SECRET" >> .env
+        - echo "GOLF_COURSE_API_KEY=$GOLF_COURSE_API_KEY" >> .env
+        - echo "NODE_ENV=production" >> .env
+        # Debug - show DATABASE_URL host (not password)
+        - echo "DATABASE_URL host:" && echo $DATABASE_URL | sed 's/:[^:]*@/@/' | sed 's/postgresql:\/\/[^@]*@/HOST:/'
     build:
       commands:
         - npm run build
   artifacts:
-    baseDirectory: .next # Or whatever your build output directory is
+    baseDirectory: .next
     files:
       - '**/*'
   cache:
