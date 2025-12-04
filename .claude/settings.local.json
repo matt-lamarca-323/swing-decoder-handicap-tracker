@@ -14,7 +14,9 @@
       "Bash(npm install:*)",
       "Bash(npm run dev:*)",
       "Bash(node fix-admin-role.js:*)",
-      "WebFetch(domain:rapidapi.com)"
+      "WebFetch(domain:rapidapi.com)",
+      "Bash(taskkill:*)",
+      "Bash(node -e:*)"
     ],
     "deny": [],
     "ask": []
