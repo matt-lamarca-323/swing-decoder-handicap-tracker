@@ -35,11 +35,8 @@ frontend:
         - cp .env .next/standalone/.env 2>/dev/null || true
         - echo "=== .env files copied ==="
   artifacts:
-    baseDirectory: .
+    baseDirectory: .next
     files:
-      - .next/**/*
-      - .env
-      - node_modules/.prisma/**/*
-      - node_modules/@prisma/**/*
+      - '**/*'
   cache:
     paths: []
