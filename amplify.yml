@@ -28,12 +28,16 @@ frontend:
       commands:
         # Copy .env to standalone folder
         - cp .env .next/standalone/.env
+        # Install dotenv in standalone node_modules
+        - cd .next/standalone && npm install dotenv --save
         # Prepend dotenv loading to server.js
         - |
           cd .next/standalone
-          echo 'require("dotenv").config();' | cat - server.js > temp && mv temp server.js
+          sed -i '1s/^/require("dotenv").config();\n/' server.js
           echo "=== server.js modified to load .env ==="
           head -5 server.js
+          echo "=== .env contents (masked) ==="
+          cat .env | sed 's/=.*/=***/'
   artifacts:
     baseDirectory: .next
     files:
