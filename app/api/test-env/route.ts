@@ -62,18 +62,23 @@ export async function GET() {
   const databaseConnectionInfo = parseConnectionString(process.env.DATABASE_URL)
 
   // Debug: Show raw DATABASE_URL host extraction
+  const amplifyDbUrl = process.env.AMPLIFY_DATABASE_URL || ''
   const rawDbUrl = process.env.DATABASE_URL || ''
-  const hostMatch = rawDbUrl.match(/@([^:\/]+)/)
-  const userMatch = rawDbUrl.match(/\/\/([^:@]+)/)
+  const effectiveDbUrl = amplifyDbUrl || rawDbUrl
+  const hostMatch = effectiveDbUrl.match(/@([^:\/]+)/)
+  const userMatch = effectiveDbUrl.match(/\/\/([^:@]+)/)
 
   return NextResponse.json({
     debug: {
       extractedHost: hostMatch ? hostMatch[1] : 'not found',
       extractedUser: userMatch ? userMatch[1] : 'not found',
-      urlLength: rawDbUrl.length,
-      startsWithPostgresql: rawDbUrl.startsWith('postgresql://'),
-      containsPooler: rawDbUrl.includes('pooler.supabase.com'),
-      containsDbDirect: rawDbUrl.includes('db.') && rawDbUrl.includes('.supabase.co'),
+      urlLength: effectiveDbUrl.length,
+      startsWithPostgresql: effectiveDbUrl.startsWith('postgresql://'),
+      containsPooler: effectiveDbUrl.includes('pooler.supabase.com'),
+      containsDbDirect: effectiveDbUrl.includes('db.') && effectiveDbUrl.includes('.supabase.co'),
+      amplifyDbUrlSet: !!amplifyDbUrl,
+      amplifyDbUrlLength: amplifyDbUrl.length,
+      usingAmplifyUrl: !!amplifyDbUrl,
     },
     stats,
     requiredVariables: requiredVars,

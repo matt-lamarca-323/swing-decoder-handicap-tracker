@@ -6,10 +6,13 @@ const globalForPrisma = globalThis as unknown as {
 
 // Explicitly pass DATABASE_URL for serverless environments (AWS Amplify, Vercel, etc.)
 // Configure for PgBouncer/connection pooling compatibility
+// Use AMPLIFY_DATABASE_URL as fallback since Amplify may override DATABASE_URL
+const databaseUrl = process.env.AMPLIFY_DATABASE_URL || process.env.DATABASE_URL
+
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL
+      url: databaseUrl
     }
   },
   // Disable Prisma's connection pool when using external pooler (PgBouncer)
