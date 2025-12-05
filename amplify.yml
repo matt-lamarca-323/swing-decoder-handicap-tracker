@@ -8,8 +8,8 @@ frontend:
         # Debug - check if env vars are available
         - echo "=== DEBUG ENV VARS ==="
         - echo "DATABASE_URL is set:" && test -n "$DATABASE_URL" && echo "YES" || echo "NO"
-        - echo "AUTH_SECRET is set:" && test -n "$AUTH_SECRET" && echo "YES" || echo "NO"
-        - env | grep -E "^(DATABASE|AUTH|GOLF)" | sed 's/=.*/=***/' || echo "No matching env vars found"
+        - echo "DATABASE_URL host:" && echo "$DATABASE_URL" | sed 's/.*@//' | sed 's/:.*//'
+        - echo "DATABASE_URL contains pooler:" && echo "$DATABASE_URL" | grep -q "pooler" && echo "YES" || echo "NO"
         - echo "=== END DEBUG ==="
         # Write environment variables to .env for Next.js build
         - rm -f .env .env.production .env.local
