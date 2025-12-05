@@ -26,14 +26,14 @@ frontend:
         - npm run build
     postBuild:
       commands:
-        # Debug - show .next structure
-        - echo "=== .next folder structure ==="
-        - ls -la .next/ || echo "No .next folder"
-        - ls -la .next/standalone/ 2>/dev/null || echo "No standalone folder"
-        # Copy .env to multiple locations
-        - cp .env .next/.env 2>/dev/null || true
-        - cp .env .next/standalone/.env 2>/dev/null || true
-        - echo "=== .env files copied ==="
+        # Copy .env to standalone folder
+        - cp .env .next/standalone/.env
+        # Prepend dotenv loading to server.js
+        - |
+          cd .next/standalone
+          echo 'require("dotenv").config();' | cat - server.js > temp && mv temp server.js
+          echo "=== server.js modified to load .env ==="
+          head -5 server.js
   artifacts:
     baseDirectory: .next
     files:
